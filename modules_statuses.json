@@ -1,0 +1,7 @@
+{
+    "Parcels": true,
+    "Core": true,
+    "Sensors": true,
+    "ControlUnits": true,
+    "SensorReadings": true
+}

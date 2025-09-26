@@ -1,0 +1,12 @@
+{
+    "name": "Sensors",
+    "alias": "sensors",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Sensors\\Providers\\SensorsServiceProvider",
+        "Modules\\Sensors\\Providers\\RouteServiceProvider"
+    ],
+    "files": []
+}

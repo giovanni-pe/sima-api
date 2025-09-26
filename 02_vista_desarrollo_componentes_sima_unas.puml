@@ -1,0 +1,27 @@
+@startuml
+title SIMA-UNAS – Vista de desarrollo (Componentes)
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+component "WebApp SIMA-UNAS\nVue 3 + TypeScript\n(PWA + Desktop)" as WebApp
+component "Android App\n(Capacitor/WebView)" as Android
+component "API SIMA-UNAS\nLaravel (DDD módulos)" as API
+component "Worker MQTT\n(ingesta/cron)" as Worker
+component "Broker MQTT\n(eclipse-mosquitto)" as MQTT
+database  "MySQL 8\nsimaunas_db" as DB
+component "Auth / JWT" as Auth
+
+interface "HTTPS REST" as HTTPS
+interface "WS MQTT\nmqtt(s)/ws(s)" as MQTTPROTO
+
+WebApp -down- HTTPS
+Android -down- HTTPS
+HTTPS -down- API
+API -down- DB
+API ..> Auth
+WebApp .. MQTTPROTO
+Android .. MQTTPROTO
+MQTTPROTO .. MQTT
+Worker ..> MQTT : suscribe/persiste
+Worker ..> API  : usa servicios dominio
+@enduml

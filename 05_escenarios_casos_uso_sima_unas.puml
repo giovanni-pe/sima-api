@@ -1,0 +1,23 @@
+@startuml
+title SIMA-UNAS – Escenarios (Casos de uso)
+left to right direction
+skinparam shadowing false
+
+actor "Supervisor de parcela" as Supervisor
+
+rectangle "SIMA-UNAS" as Sistema {
+  usecase "Ver listado de parcelas\ncon filtros (fecha/estado/búsqueda)" as UC1
+  usecase "Monitorear variables\nen tiempo real" as UC2
+  usecase "Controlar actuadores\n(Ultrasonido)" as UC3
+  usecase "Ver trazabilidad de eventos\n(activaciones y lecturas)" as UC4
+  usecase "Gestionar unidades de control,\nsensores y actuadores" as UC5
+  usecase "Recibir alertas\n(umbral/excepción)" as UC6
+}
+
+Supervisor --> UC1
+Supervisor --> UC2
+Supervisor --> UC3
+Supervisor --> UC4
+Supervisor --> UC5
+UC2 <.. UC6 : <<extend>>
+@enduml

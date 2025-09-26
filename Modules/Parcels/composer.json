@@ -1,0 +1,30 @@
+{
+    "name": "nwidart/parcels",
+    "description": "",
+    "authors": [
+        {
+            "name": "Tu Nombre",
+            "email": "tucorreo@example.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Parcels\\": "app/",
+            "Modules\\Parcels\\Database\\Factories\\": "database/factories/",
+            "Modules\\Parcels\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Parcels\\Tests\\": "tests/"
+        }
+    }
+}

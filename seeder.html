@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Seeder MQTT – ChasquiX Test (Dinámico)</title>
+</head>
+<body>
+  <h1>Seeder MQTT para ChasquiX</h1>
+  <p>Simula mototaxistas y pasajeros que aparecen y desaparecen sobre calles principales de Tingo María.</p>
+  <p>Los precios de los conductores serán siempre menores a S/ 3.00.</p>
+  <p>Abrir la consola (F12) para ver los logs de conexión y publicación.</p>
+
+  <!-- Paho MQTT client -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+
+  <script>
+    // Configuración MQTT
+    const MQTT_HOST = 'mqttv2.smartpx.org';
+    const MQTT_PORT = 443;
+    const MQTT_PATH = '';
+    const CLIENT_ID = 'seeder_js_' + Date.now();
+
+    // Parámetros de simulación
+    const MAX_DRIVERS     = 5;      // hasta 5 mototaxistas simultáneos
+    const MAX_CLIENTS     = 10;     // hasta 10 pasajeros simultáneos
+    const UPDATE_INTERVAL = 10000;  // ms entre publicaciones
+    const SIGMA           = 0.00003;   // ruido gaussiano (~3 m)
+    const MAX_SPEED_DRIVER = 0.00015;  // ~15 m/tick
+    const MAX_SPEED_CLIENT = 0.00008;  // ~8 m/tick
+
+    // Zonas (bounding boxes) de calles principales
+    const STREET_ZONES = [
+      { name: 'Av. Raimondi', bounds: { minLat: -9.2975, maxLat: -9.2940, minLng: -76.0050, maxLng: -76.0010 } },
+      { name: 'Av. Ucayali',    bounds: { minLat: -9.3010, maxLat: -9.2990, minLng: -76.0040, maxLng: -76.0010 } },
+      { name: 'Av. La Bandera', bounds: { minLat: -9.2960, maxLat: -9.2940, minLng: -76.0045, maxLng: -76.0015 } },
+      { name: 'Av. José C. Mariátegui', bounds: { minLat: -9.2940, maxLat: -9.2920, minLng: -76.0080, maxLng: -76.0040 } },
+      { name: 'Av. Alameda Perú', bounds: { minLat: -9.2935, maxLat: -9.2915, minLng: -76.0060, maxLng: -76.0020 } },
+      { name: 'Jr. Callao', bounds: { minLat: -9.2990, maxLat: -9.2920, minLng: -76.0035, maxLng: -76.0020 } },
+      { name: 'Jr. Pucallpa', bounds: { minLat: -9.2980, maxLat: -9.2910, minLng: -76.0050, maxLng: -76.0035 } },
+      { name: 'Jr. Iquitos', bounds: { minLat: -9.2970, maxLat: -9.2900, minLng: -76.0040, maxLng: -76.0020 } },
+      { name: 'Av. 15 de Enero', bounds: { minLat: -9.2925, maxLat: -9.2905, minLng: -76.0085, maxLng: -76.0050 } },
+      { name: 'Av. Agricultura', bounds: { minLat: -9.2915, maxLat: -9.2895, minLng: -76.0065, maxLng: -76.0035 } }
+    ];
+
+    // Destinos reales
+    const DESTINATIONS = [
+      "Plaza de Armas de Tingo María",
+      "Hospital II de Tingo María",
+      "Universidad Nacional Agraria de la Selva",
+      "Mercado Central",
+      "Parque Belén",
+      "Terminal Terrestre",
+      "Banco de la Nación",
+      "Estadio Municipal",
+      "Malecón Río Monzón"
+    ];
+
+    // Box–Muller para gaussiana estándar
+    function randNormal() {
+      let u = 0, v = 0;
+      while (u === 0) u = Math.random();
+      while (v === 0) v = Math.random();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+
+    function clamp(val, min, max) {
+      return Math.max(min, Math.min(max, val));
+    }
+
+    function pickZone() {
+      return STREET_ZONES[Math.floor(Math.random() * STREET_ZONES.length)];
+    }
+
+    // Contadores para IDs únicos
+    let driverCount = 0;
+    let clientCount = 0;
+
+    // Listas dinámicas de entidades
+    const drivers = [];
+    const clients = [];
+
+    // Crea una nueva entidad driver
+    function spawnDriver() {
+      const zone = pickZone();
+      const lat = zone.bounds.minLat + Math.random() * (zone.bounds.maxLat - zone.bounds.minLat);
+      const lng = zone.bounds.minLng + Math.random() * (zone.bounds.maxLng - zone.bounds.minLng);
+      driverCount++;
+      drivers.push({
+        id: `driver_${driverCount}`, zone, lat, lng, vx:0, vy:0
+      });
+    }
+
+    // Crea una nueva entidad client
+    function spawnClient() {
+      const zone = pickZone();
+      const lat = zone.bounds.minLat + Math.random() * (zone.bounds.maxLat - zone.bounds.minLat);
+      const lng = zone.bounds.minLng + Math.random() * (zone.bounds.maxLng - zone.bounds.minLng);
+      const destName = DESTINATIONS[Math.floor(Math.random() * DESTINATIONS.length)];
+      const destZone = pickZone();
+      const dLat = destZone.bounds.minLat + Math.random() * (destZone.bounds.maxLat - destZone.bounds.minLat);
+      const dLng = destZone.bounds.minLng + Math.random() * (destZone.bounds.maxLng - destZone.bounds.minLng);
+      clientCount++;
+      clients.push({
+        id: `client_${clientCount}`, zone, lat, lng, vx:0, vy:0,
+        destination: destName, destinationLat: dLat, destinationLng: dLng
+      });
+    }
+
+    // Añade o remueve entidades con probabilidad
+    function randomizePopulation() {
+      // Drivers
+      if (drivers.length < MAX_DRIVERS && Math.random() < 0.3) {
+        spawnDriver();
+      }
+      if (drivers.length > 0 && Math.random() < 0.2) {
+        drivers.splice(Math.floor(Math.random() * drivers.length), 1);
+      }
+      // Clients
+      if (clients.length < MAX_CLIENTS && Math.random() < 0.5) {
+        spawnClient();
+      }
+      if (clients.length > 0 && Math.random() < 0.3) {
+        clients.splice(Math.floor(Math.random() * clients.length), 1);
+      }
+    }
+
+    // Empaqueta mensaje MQTT
+    function buildMessage(ent, type) {
+      const base = {
+        userId: ent.id,
+        action: type === 'driver' ? 'available' : 'request',
+        lat: ent.lat,
+        lng: ent.lng,
+        timestamp: Date.now(),
+        status: type === 'driver' ? 'available' : 'waiting'
+      };
+      if (type === 'driver') {
+        // precio < 3.00 soles
+        const price = (Math.random() * 2.9 + 0.1).toFixed(2);
+        return { ...base, description: 'Mototaxista en ruta', price };
+      } else {
+        return {
+          ...base,
+          destination: ent.destination,
+          destinationLat: ent.destinationLat,
+          destinationLng: ent.destinationLng,
+          description: `Por favor, llévame al ${ent.destination}`
+        };
+      }
+    }
+
+    // Conexión MQTT
+    const client = new Paho.MQTT.Client(MQTT_HOST, MQTT_PORT, MQTT_PATH, CLIENT_ID);
+    client.onConnectionLost = resp => console.error('⚠️ Conexión perdida:', resp.errorMessage);
+
+    client.connect({
+      useSSL: true,
+      timeout: 10,
+      onSuccess: () => {
+        console.log('✅ Seeder conectado como', CLIENT_ID);
+        tick();
+        setInterval(tick, UPDATE_INTERVAL);
+      },
+      onFailure: err => console.error('❌ Error conectar Seeder:', err.errorMessage)
+    });
+
+    // Tick de simulación: población + movimiento + publicación
+    function tick() {
+      randomizePopulation();
+
+      // Actualiza y publica drivers
+      drivers.forEach(d => {
+        d.vx += randNormal() * SIGMA;
+        d.vy += randNormal() * SIGMA;
+        let speed = Math.hypot(d.vx, d.vy);
+        if (speed > MAX_SPEED_DRIVER) {
+          d.vx *= MAX_SPEED_DRIVER / speed;
+          d.vy *= MAX_SPEED_DRIVER / speed;
+        }
+        d.lat = clamp(d.lat + d.vy, d.zone.bounds.minLat, d.zone.bounds.maxLat);
+        d.lng = clamp(d.lng + d.vx, d.zone.bounds.minLng, d.zone.bounds.maxLng);
+
+        const msg = new Paho.MQTT.Message(JSON.stringify(buildMessage(d, 'driver')));
+        msg.destinationName = 'chasquix/drivers';
+        client.send(msg);
+      });
+
+      // Actualiza y publica clientshf
+      clients.forEach(c => {
+        c.vx += randNormal() * SIGMA;
+        c.vy += randNormal() * SIGMA;
+        let speed = Math.hypot(c.vx, c.vy);
+        if (speed > MAX_SPEED_CLIENT) {
+          c.vx *= MAX_SPEED_CLIENT / speed;
+          c.vy *= MAX_SPEED_CLIENT / speed;
+        }
+        c.lat = clamp(c.lat + c.vy, c.zone.bounds.minLat, c.zone.bounds.maxLat);
+        c.lng = clamp(c.lng + c.vx, c.zone.bounds.minLng, c.zone.bounds.maxLng);
+
+        const msg = new Paho.MQTT.Message(JSON.stringify(buildMessage(c, 'client')));
+        msg.destinationName = 'chasquix/clients';
+        client.send(msg);
+      });
+
+      console.log(`📡 Publicado a las ${new Date().toLocaleTimeString()} | drivers=${drivers.length} clients=${clients.length}`);
+    }
+  </script>
+</body>
+</html>

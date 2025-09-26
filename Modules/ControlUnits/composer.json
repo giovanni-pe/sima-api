@@ -1,0 +1,30 @@
+{
+    "name": "nwidart/controlunits",
+    "description": "",
+    "authors": [
+        {
+            "name": "Tu Nombre",
+            "email": "tucorreo@example.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\ControlUnits\\": "app/",
+            "Modules\\ControlUnits\\Database\\Factories\\": "database/factories/",
+            "Modules\\ControlUnits\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\ControlUnits\\Tests\\": "tests/"
+        }
+    }
+}

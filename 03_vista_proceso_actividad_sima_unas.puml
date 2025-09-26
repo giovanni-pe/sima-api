@@ -1,0 +1,62 @@
+@startuml
+title SIMA-UNAS - Proceso de monitoreo y control (Swimlanes por procesos)
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FFFFFF
+  BorderColor #2D3E50
+}
+
+|Supervisor|
+start
+: Abrir SIMA-UNAS (Web/Movil);
+
+|WebApp|
+: Autenticarse (JWT);
+: Suscribirse a topicos MQTT\nsimaunas/{parcel}/#;
+: Solicitar lista de parcelas (GET /parcels);
+
+|API|
+: Validar JWT;
+: Paginar/filtrar parcelas;
+: Responder JSON;
+
+|WebApp|
+: Renderizar cards de parcelas;
+
+|Sensor/MQTT|
+: Publicar lectura (temp/humedad);
+
+|Worker Ingesta|
+: Recibir mensaje MQTT;
+: Validar/mapeo DTO;
+: Guardar lectura/evento en DB;
+
+|WebApp|
+: Recibir actualizacion (MQTT);
+: Actualizar UI en tiempo real;
+
+if (Activar actuador?) then (si)
+  |Supervisor|
+  : Activar bomba/valvula;
+
+  |WebApp|
+  : POST /actuators/{id}/command;
+
+  |API|
+  : Registrar evento (manual/auto);
+  : Publicar comando a MQTT;
+
+  |Actuator/MQTT|
+  : Ejecutar comando;
+  : Reportar estado;
+
+  |WebApp|
+  : Reflejar estado de actuador;
+else (no)
+  |Supervisor|
+  : Continuar monitoreo;
+endif
+
+|Supervisor|
+stop
+@enduml

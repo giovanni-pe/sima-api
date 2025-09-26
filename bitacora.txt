@@ -1,0 +1,51 @@
+ALTER TABLE users
+ADD COLUMN google_id VARCHAR(255) NULL UNIQUE,
+ADD COLUMN avatar VARCHAR(255) NULL;
+
+ALTER TABLE `users` MODIFY `phone` VARCHAR(15) NULL;
+
+ALTER TABLE trips ADD COLUMN passenger_max_fare DECIMAL(8,2) NULL;
+git mv api temp_folder
+git mv temp_folder Api
+
+
+ALTER TABLE chasqui_db_vf.trips
+ADD COLUMN is_collective BOOLEAN NOT NULL DEFAULT FALSE,
+ADD COLUMN max_passengers TINYINT NULL;
+
+
+CREATE TABLE trip_passengers (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    trip_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT UNSIGNED NOT NULL,
+
+    pickup_latitude DECIMAL(10,8) NOT NULL,
+    pickup_longitude DECIMAL(11,8) NOT NULL,
+    pickup_address VARCHAR(255) NOT NULL,
+
+    destination_latitude DECIMAL(10,8) NOT NULL,
+    destination_longitude DECIMAL(11,8) NOT NULL,
+    destination_address VARCHAR(255) NOT NULL,
+
+    passenger_notes TEXT NULL,
+    pickup_eta TIMESTAMP NULL,
+    boarded_at TIMESTAMP NULL,
+    dropped_at TIMESTAMP NULL,
+
+    status ENUM('reserved', 'aboard', 'dropped', 'cancelled') NOT NULL DEFAULT 'reserved',
+
+    fare DECIMAL(8,2) NULL,
+    seat_number TINYINT NULL,
+
+    whatsapp_contact VARCHAR(20) NULL,
+
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY unique_trip_user (trip_id, user_id),
+    INDEX idx_trip_status (trip_id, status),
+    INDEX idx_user_status (user_id, status),
+
+    CONSTRAINT fk_trip_passengers_trip FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE,
+    CONSTRAINT fk_trip_passengers_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

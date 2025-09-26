@@ -1,0 +1,3190 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChasquiX - Sistema de Taxi Móvil</title>
+    <!-- Mapbox CSS -->
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css' rel='stylesheet' />
+    <!-- Mapbox Geocoder CSS -->
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            height: 100vh;
+            overflow: hidden;
+            /* Ajustar padding superior para compensar la barra de estado */
+            padding-top: 25px;
+            /* Alternativa: usar safe-area para dispositivos modernos */
+            padding-top: env(safe-area-inset-top, 25px);
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding-top: 25px;
+            padding-top: env(safe-area-inset-top, 25px);
+        }
+
+        .sidebar {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            padding-top: 25px;
+        }
+
+        .sidebar.active {
+            transform: translateY(0);
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .header h1 {
+            color: #764ba2;
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .user-type {
+            margin-bottom: 15px;
+        }
+
+        .user-type label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .user-type select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .user-info {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #764ba2;
+            font-size: 13px;
+        }
+
+        .connection-status {
+            padding: 8px;
+            border-radius: 5px;
+            text-align: center;
+            margin-bottom: 12px;
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .request-form {
+            background: white;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .request-form h3 {
+            margin-bottom: 12px;
+            color: #764ba2;
+            font-size: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 13px;
+        }
+
+        /* Estilos para el geocoder de Mapbox */
+        .mapboxgl-ctrl-geocoder {
+            width: 100% !important;
+            max-width: none !important;
+            margin-bottom: 10px;
+        }
+
+        .destination-search {
+            position: relative;
+            margin-bottom: 12px;
+        }
+
+        .search-container {
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 40px 10px 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .search-input:focus {
+            border-color: #764ba2;
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+            pointer-events: none;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .search-result-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .search-result-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-title {
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .result-address {
+            color: #666;
+            font-size: 12px;
+            margin-top: 2px;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+            transition: transform 0.2s;
+            margin-bottom: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .active-requests {
+            background: white;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .request-item {
+            background: #f8f9fa;
+            padding: 8px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+            cursor: pointer;
+            transition: transform 0.2s;
+            font-size: 12px;
+        }
+
+        .request-item:hover {
+            transform: translateX(5px);
+        }
+
+        .request-item.driver {
+            border-left-color: #007bff;
+        }
+
+        .request-item h4 {
+            margin-bottom: 4px;
+            color: #333;
+            font-size: 13px;
+        }
+
+        .request-item p {
+            margin: 2px 0;
+            color: #666;
+            font-size: 11px;
+        }
+
+        .accept-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            margin-top: 4px;
+        }
+
+        .cancel-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            margin-top: 4px;
+            margin-left: 4px;
+        }
+
+        .coordinates {
+            background: #e9ecef;
+            padding: 8px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 11px;
+            margin-top: 8px;
+        }
+
+        .destination-selector {
+            background: #f0f8ff;
+            padding: 8px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border: 2px dashed #007bff;
+            text-align: center;
+            font-size: 13px;
+        }
+
+        .destination-selector.active {
+            background: #e3f2fd;
+            border-style: solid;
+        }
+
+        .route-info {
+            background: #fff3cd;
+            padding: 8px;
+            border-radius: 5px;
+            margin-top: 8px;
+            font-size: 12px;
+        }
+
+        .notification {
+            position: fixed;
+            top: 30px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            max-width: 80%;
+            font-size: 13px;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.1);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .distance-badge {
+            background: #007bff;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-left: 4px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .btn-group .btn {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        /* Estilos para el chat */
+        .chat-container {
+            position: fixed;
+            bottom: 60px;
+            right: 15px;
+            width: 90%;
+            height: 60vh;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+            display: none;
+            flex-direction: column;
+            z-index: 1000;
+        }
+
+        .chat-container.active {
+            display: flex;
+        }
+
+        .chat-header {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-header h4 {
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .chat-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background: #f8f9fa;
+        }
+
+        .chat-message {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .chat-message.sent {
+            justify-content: flex-end;
+        }
+
+        .chat-message.received {
+            justify-content: flex-start;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 8px 12px;
+            border-radius: 15px;
+            position: relative;
+            font-size: 13px;
+        }
+
+        .message-bubble.sent {
+            background: #007bff;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-bubble.received {
+            background: #e9ecef;
+            color: #333;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-time {
+            font-size: 9px;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+
+        .chat-input-container {
+            padding: 10px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .chat-send {
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .chat-send:hover {
+            background: #0056b3;
+        }
+
+        .chat-indicator {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .btn-chat {
+            background: #28a745;
+            position: relative;
+        }
+
+        .contact-btn {
+            background: #17a2b8;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            margin-top: 4px;
+        }
+
+        /* Nuevos estilos para la lista de clientes */
+        .client-list {
+            margin-top: 12px;
+        }
+
+        .client-item {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 8px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        .client-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .client-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .btn-accept {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            flex: 1;
+            font-size: 11px;
+        }
+
+        .btn-chat {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            flex: 1;
+            font-size: 11px;
+        }
+
+        /* FABs (Floating Action Buttons) */
+        /* Estilos FAB simplificados */
+        .fab-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 999;
+        }
+
+        .fab-main {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            font-size: 24px;
+            z-index: 1000;
+        }
+
+        .fab-secondary-container {
+            position: absolute;
+            bottom: 70px;
+            right: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 15px;
+        }
+
+        .fab-group {
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .fab-group.active {
+            display: flex;
+        }
+
+        .fab-with-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .fab-secondary {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #6c757d;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        .fab-secondary.success {
+            background: #28a745;
+        }
+
+        .fab-secondary.danger {
+            background: #dc3545;
+        }
+
+        .fab-secondary.info {
+            background: #17a2b8;
+        }
+
+        .fab-label {
+            font-size: 12px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-top: 5px;
+            text-align: center;
+        }
+
+        .chat-indicator {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        /* Panel toggle */
+        .panel-toggle {
+            position: fixed;
+            top: 60px;
+            /* Bajado de 15px a 60px para compensar la barra de estado */
+            left: 15px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            color: #764ba2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            z-index: 1001;
+            font-size: 20px;
+        }
+
+        /* Responsive adjustments */
+        @media (min-width: 768px) {
+            .container {
+                flex-direction: row;
+            }
+
+            .sidebar {
+                position: relative;
+                width: 350px;
+                height: 100%;
+                transform: translateY(0);
+            }
+
+            .panel-toggle {
+                display: none;
+            }
+
+            .chat-container {
+                width: 350px;
+                height: 450px;
+                bottom: 20px;
+                right: 20px;
+            }
+        }
+
+        /* Estilos para el marker personalizado de Mapbox */
+        .mapbox-marker {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            position: relative;
+        }
+
+        .marker-user {
+            background-color: #764ba2;
+            animation: pulse 2s infinite;
+        }
+
+        .marker-client {
+            background-color: #28a745;
+        }
+
+        .marker-driver {
+            background-color: #007bff;
+        }
+
+        .marker-destination {
+            background-color: #ff6347;
+        }
+
+        /* Ocultar los controles de navegación de Mapbox para un look más limpio */
+        .mapboxgl-ctrl-bottom-left,
+        .mapboxgl-ctrl-bottom-right {
+            display: none;
+        }
+
+        /* Personalizar el estilo del geocoder */
+        .mapboxgl-ctrl-geocoder--input {
+            font-size: 14px;
+            padding: 8px 35px 8px 10px;
+        }
+
+        .clear-destination {
+            position: absolute;
+            right: 35px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 16px;
+            display: none;
+        }
+
+        .clear-destination.show {
+            display: block;
+        }
+
+        .selected-destination {
+            background: #e8f5e8;
+            border: 2px solid #28a745;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: none;
+        }
+
+        .selected-destination.show {
+            display: block;
+        }
+
+        .destination-info {
+            font-size: 13px;
+            color: #333;
+        }
+
+        .destination-name {
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        .destination-address {
+            color: #666;
+            margin-top: 2px;
+        }
+        @media (max-width: 700px) {
+  #onboardingTooltip {
+    width: 96vw !important;
+    max-width: 96vw !important;
+    left: 2vw !important;
+    right: 2vw !important;
+    font-size: 15px !important;
+    padding: 12px !important;
+  }
+  .onboarding-highlight {
+    box-shadow: 0 0 0 3px #764ba288 !important;
+    border-radius: 10px !important;
+  }
+}
+
+.onboarding-highlight {
+  box-shadow: 0 0 0 6px #764ba2cc, 0 8px 28px #3332;
+  z-index: 100001 !important;
+  position: relative !important;
+  border-radius: 14px !important;
+  transition: box-shadow 0.2s;
+}
+
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="panel-toggle" id="panelToggle">
+            <i class="fas fa-bars"></i>
+        </div>
+
+        <div class="sidebar" id="sidebar">
+            <div class="header">
+                <h1>🚕 ChasquiX</h1>
+                <p>Sistema de Taxi - Tingo María</p>
+            </div>
+
+            <div id="connectionStatus" class="connection-status disconnected">
+                🔴 Desconectado
+            </div>
+
+            <div class="user-type">
+                <label for="userTypeSelect">Tipo de Usuario:</label>
+                <select id="userTypeSelect">
+                    <option value="client">🙋‍♂️ Cliente (Solicitar Taxi)</option>
+                    <option value="driver">🏍️ Mototaxista (Ofrecer Servicio)</option>
+                </select>
+            </div>
+
+            <div class="user-info">
+                <div id="userInfo">
+                    <p><strong>Usuario:</strong> <span id="userId"></span></p>
+                    <p><strong>Estado:</strong> <span id="userStatus">Esperando...</span></p>
+                </div>
+            </div>
+
+            <div class="request-form">
+                <h3 id="formTitle">Solicitar Taxi</h3>
+
+                <!-- Información del destino seleccionado -->
+                <div id="selectedDestination" class="selected-destination">
+                    <div class="destination-info">
+                        <div class="destination-name" id="destinationName"></div>
+                        <div class="destination-address" id="destinationAddress"></div>
+                    </div>
+                    <button type="button" class="btn btn-secondary" onclick="clearDestination()" style="margin-top: 8px; padding: 4px 8px; font-size: 12px;">
+                        Cambiar Destino
+                    </button>
+                </div>
+
+                <!-- Búsqueda de destino -->
+                <div class="destination-search">
+                    <label>Buscar Destino:</label>
+                    <div class="search-container">
+                        <input type="text"
+                               id="destinationSearch"
+                               class="search-input"
+                               placeholder="Buscar lugar en Tingo María..."
+                               autocomplete="off">
+                        <i class="fas fa-search search-icon"></i>
+                        <button type="button" class="clear-destination" id="clearDestinationBtn" onclick="clearDestination()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        <div id="searchResults" class="search-results"></div>
+                    </div>
+                </div>
+
+                <div id="destinationSelector" class="destination-selector">
+                    <p>📍 <strong>Busca tu destino arriba o haz click en el mapa</strong></p>
+                </div>
+
+                <div class="form-group">
+                    <label for="destination">Detalles del destino:</label>
+                    <textarea id="destination" rows="2" placeholder="Referencia adicional (ej: frente al mercado)"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Descripción adicional:</label>
+                    <textarea id="description" rows="2"
+                        placeholder="Ej: Llevar equipaje, viaje de emergencia..."></textarea>
+                </div>
+
+                <div class="form-group" id="priceGroup" style="display: none;">
+                    <label for="price">Precio ofrecido (S/):</label>
+                    <input type="number" id="price" placeholder="15.00" step="0.50" min="5">
+                </div>
+
+                <div id="routeInfo" class="route-info" style="display: none;">
+                    <strong>Información de ruta:</strong>
+                    <p>Distancia: <span id="routeDistance">-</span></p>
+                    <p>Tiempo estimado: <span id="routeDuration">-</span></p>
+                </div>
+            </div>
+
+            <div class="active-requests">
+                <h3>🗺️ Actividad en Tiempo Real</h3>
+                <div id="requestsList"></div>
+            </div>
+
+            <div class="coordinates" id="coordinates">
+                <strong>📍 Mi ubicación:</strong><br>
+                Latitud: <span id="lat">-</span><br>
+                Longitud: <span id="lng">-</span>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- Chat Container -->
+    <div id="chatContainer" class="chat-container">
+        <div class="chat-header">
+            <h4>💬 Chat con <span id="chatPartnerName">-</span></h4>
+            <button class="chat-close" onclick="closeChat()">×</button>
+        </div>
+        <div id="chatMessages" class="chat-messages"></div>
+        <div class="chat-input-container">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Escribe un mensaje..."
+                onkeypress="handleChatKeyPress(event)">
+            <button class="chat-send" onclick="sendChatMessage()">➤</button>
+        </div>
+    </div>
+
+    <!-- FAB Container -->
+    <div class="fab-container" id="fabContainer">
+        <!-- FAB Principal (siempre visible) -->
+        <div class="fab-main" id="fabMain">
+            <i class="fas fa-taxi" id="fabMainIcon"></i>
+        </div>
+
+        <!-- FABs Secundarios (aparecen según estado) -->
+        <div class="fab-secondary-container">
+            <!-- Solo se mostrará uno de estos grupos a la vez -->
+
+            <!-- Grupo 1: Modo Espera (Cliente) -->
+            <div class="fab-group" id="waitingGroup">
+                <div class="fab-with-label" id="fabDestination">
+                    <div class="fab-secondary">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                    <span class="fab-label">Destino</span>
+                </div>
+            </div>
+
+            <!-- Grupo 2: Modo Ruta (Cliente) -->
+            <div class="fab-group" id="routeGroup">
+                <div class="fab-with-label" id="fabConfirm">
+                    <div class="fab-secondary success">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <span class="fab-label">Confirmar</span>
+                </div>
+            </div>
+
+            <!-- Grupo 3: Modo Activo (Todos) -->
+            <div class="fab-group" id="activeGroup">
+                <div class="fab-with-label" id="fabCancel">
+                    <div class="fab-secondary danger">
+                        <i class="fas fa-times"></i>
+                    </div>
+                    <span class="fab-label">Cancelar</span>
+                </div>
+                <div class="fab-with-label" id="fabChat">
+                    <div class="fab-secondary info">
+                        <i class="fas fa-comment"></i>
+                        <span id="unreadIndicator" class="chat-indicator">0</span>
+                    </div>
+                    <span class="fab-label">Chat</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="onboardingOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.45);">
+  <div id="onboardingTooltip" style="position:absolute;max-width:90vw;width:320px;background:#fff;color:#333;border-radius:14px;box-shadow:0 8px 24px #0002;padding:18px;z-index:100000;transition:top .25s,left .25s;">
+    <div id="onboardingArrow" style="width:26px;height:26px;display:none;position:absolute;left:50%;transform:translateX(-50%);z-index:100001;">
+      <svg width="26" height="26"><polygon points="13,0 26,26 0,26" fill="#fff" stroke="#bbb" stroke-width="1"/></svg>
+    </div>
+    <div id="onboardingStepContent" style="font-size:15px;line-height:1.6;margin-bottom:10px"></div>
+    <div id="onboardingControls" style="text-align:center;">
+      <button id="onboardingPrevBtn" onclick="prevOnboardingStep()" style="background:#eee;border:none;border-radius:6px;padding:12px 22px;cursor:pointer;color:#666;margin-right:8px;display:none;font-size:16px;">⟵</button>
+      <button id="onboardingNextBtn" onclick="nextOnboardingStep()" style="background:linear-gradient(45deg,#667eea,#764ba2);color:white;border:none;border-radius:6px;padding:12px 28px;cursor:pointer;font-size:16px;">Siguiente</button>
+      <button onclick="closeOnboarding()" style="background:none;border:none;padding:12px;color:#888;font-size:18px;margin-left:8px;">Omitir</button>
+    </div>
+  </div>
+</div>
+
+    <!-- Mapbox JS -->
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js'></script>
+    <!-- Mapbox Geocoder JS -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+    <!-- MQTT -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <script>
+        // Token de Mapbox
+        mapboxgl.accessToken = 'pk.eyJ1IjoidGVsbG8tNjkiLCJhIjoiY21ianVwaWhkMDU2NTJsb2s4OGttZ3NhYSJ9.sZirrZDCxooouLCPy_DJAQ';
+
+        // Configuración global
+        const MQTT_CONFIG = {
+            host: 'mqttv2.smartpx.org',
+            port: 443,
+            topics: {
+                clients: 'chasquix/clients',
+                drivers: 'chasquix/drivers',
+                routes: 'chasquix/routes',
+                messages: 'chasquix/messages',
+                assignments: 'chasquix/assignments'
+            }
+        };
+
+        // Variables globales
+        let map;
+        let mqttClient;
+        let geocoder;
+        let currentUser = {
+            id: 'user_' + Date.now(),
+            type: 'client',
+            lat: null,
+            lng: null,
+            status: 'waiting'
+        };
+        let markers = new Map();
+        let currentRoute = null;
+        let currentRequest = null;
+        let destinationMarker = null;
+        let destinationCoords = null;
+        let destinationInfo = null;
+        let selectingDestination = false;
+        let activeAssignment = null;
+        let chatMessages = [];
+        let chatPartner = null;
+        let unreadMessages = 0;
+        let fabMenuOpen = false;
+        let searchTimeout = null;
+
+        // Inicializar la aplicación
+        document.addEventListener('DOMContentLoaded', function () {
+            initMap();
+            initMQTT();
+            initEventListeners();
+            initDestinationSearch();
+            getUserLocation();
+            updateUI();
+            updateFABs();
+        });
+
+        // Inicializar el mapa con Mapbox
+        function initMap() {
+            // Coordenadas de Tingo María, Perú
+            const tingoMaria = [-76.0073, -9.2945]; // [lng, lat] para Mapbox
+
+            map = new mapboxgl.Map({
+                container: 'map',
+                style: 'mapbox://styles/mapbox/streets-v12',
+                center: tingoMaria,
+                zoom: 14,
+                pitch: 0,
+                bearing: 0
+            });
+
+            // Agregar controles de navegación
+            map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+            // Evento para hacer clic en el mapa
+            map.on('click', function (e) {
+                if (selectingDestination) {
+                    setDestinationFromMap(e.lngLat.lng, e.lngLat.lat);
+                }
+            });
+
+            // Cuando el mapa esté cargado
+            map.on('load', function() {
+                console.log('Mapa Mapbox cargado correctamente');
+            });
+        }
+
+        // Inicializar búsqueda de destinos
+        function initDestinationSearch() {
+            const searchInput = document.getElementById('destinationSearch');
+            const searchResults = document.getElementById('searchResults');
+
+            searchInput.addEventListener('input', function(e) {
+                const query = e.target.value.trim();
+
+                // Limpiar timeout anterior
+                if (searchTimeout) {
+                    clearTimeout(searchTimeout);
+                }
+
+                if (query.length < 3) {
+                    hideSearchResults();
+                    return;
+                }
+
+                // Debounce de 300ms
+                searchTimeout = setTimeout(() => {
+                    searchPlaces(query);
+                }, 300);
+            });
+
+            // Cerrar resultados al hacer clic fuera
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.search-container')) {
+                    hideSearchResults();
+                }
+            });
+        }
+
+        // Buscar lugares con Mapbox Geocoding API
+        async function searchPlaces(query) {
+            try {
+                // Bounds de Tingo María (aproximado)
+                const bounds = [-76.1, -9.4, -75.9, -9.2]; // [minLng, minLat, maxLng, maxLat]
+
+                const response = await fetch(
+                    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
+                    `access_token=${mapboxgl.accessToken}&` +
+                    `bbox=${bounds.join(',')}&` +
+                    `proximity=-76.0073,-9.2945&` +
+                    `country=PE&` +
+                    `language=es&` +
+                    `limit=5`
+                );
+
+                const data = await response.json();
+                displaySearchResults(data.features);
+            } catch (error) {
+                console.error('Error buscando lugares:', error);
+            }
+        }
+
+        // Mostrar resultados de búsqueda
+        function displaySearchResults(places) {
+            const searchResults = document.getElementById('searchResults');
+
+            if (places.length === 0) {
+                searchResults.innerHTML = '<div class="search-result-item">No se encontraron resultados</div>';
+                searchResults.style.display = 'block';
+                return;
+            }
+
+            searchResults.innerHTML = '';
+
+            places.forEach(place => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'search-result-item';
+
+                const title = place.text || place.place_name;
+                const address = place.place_name;
+
+                resultItem.innerHTML = `
+                    <div class="result-title">${title}</div>
+                    <div class="result-address">${address}</div>
+                `;
+
+                resultItem.addEventListener('click', () => {
+                    selectDestination(place);
+                });
+
+                searchResults.appendChild(resultItem);
+            });
+
+            searchResults.style.display = 'block';
+        }
+
+        // Ocultar resultados de búsqueda
+        function hideSearchResults() {
+            document.getElementById('searchResults').style.display = 'none';
+        }
+
+        // Seleccionar destino de la búsqueda
+        function selectDestination(place) {
+            const coords = place.center; // [lng, lat]
+
+            destinationCoords = {
+                lat: coords[1],
+                lng: coords[0]
+            };
+
+            destinationInfo = {
+                name: place.text || place.place_name.split(',')[0],
+                address: place.place_name,
+                coordinates: coords
+            };
+
+            // Actualizar UI
+            document.getElementById('destinationSearch').value = destinationInfo.name;
+            document.getElementById('destinationName').textContent = destinationInfo.name;
+            document.getElementById('destinationAddress').textContent = destinationInfo.address;
+            document.getElementById('selectedDestination').classList.add('show');
+            document.getElementById('clearDestinationBtn').classList.add('show');
+
+            hideSearchResults();
+
+            // Agregar marcador en el mapa
+            addDestinationMarker(destinationCoords.lng, destinationCoords.lat);
+
+            // Dibujar ruta
+            if (currentUser.lat && currentUser.lng) {
+                drawRoute();
+            }
+
+            // Actualizar selector
+            document.getElementById('destinationSelector').classList.add('active');
+            document.getElementById('destinationSelector').innerHTML =
+                '<p>✅ <strong>Destino seleccionado</strong></p>';
+
+            updateFABs();
+            showNotification('Destino seleccionado: ' + destinationInfo.name, 'success');
+        }
+
+        // Establecer destino desde el mapa
+        function setDestinationFromMap(lng, lat) {
+            destinationCoords = { lat, lng };
+
+            // Geocodificación inversa para obtener la dirección
+            reverseGeocode(lng, lat);
+
+            // Agregar marcador
+            addDestinationMarker(lng, lat);
+
+            // Dibujar ruta
+            if (currentUser.lat && currentUser.lng) {
+                drawRoute();
+            }
+
+            // Actualizar UI
+            selectingDestination = false;
+            map.getContainer().style.cursor = '';
+            document.getElementById('destinationSelector').classList.remove('active');
+            document.getElementById('destinationSelector').innerHTML =
+                '<p>✅ <strong>Destino seleccionado en el mapa</strong></p>';
+
+            updateFABs();
+        }
+
+        // Geocodificación inversa
+        async function reverseGeocode(lng, lat) {
+            try {
+                const response = await fetch(
+                    `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?` +
+                    `access_token=${mapboxgl.accessToken}&` +
+                    `language=es&` +
+                    `limit=1`
+                );
+
+                const data = await response.json();
+
+                if (data.features && data.features.length > 0) {
+                    const place = data.features[0];
+
+                    destinationInfo = {
+                        name: place.text || 'Ubicación seleccionada',
+                        address: place.place_name,
+                        coordinates: [lng, lat]
+                    };
+
+                    // Actualizar UI
+                    document.getElementById('destinationSearch').value = destinationInfo.name;
+                    document.getElementById('destinationName').textContent = destinationInfo.name;
+                    document.getElementById('destinationAddress').textContent = destinationInfo.address;
+                    document.getElementById('selectedDestination').classList.add('show');
+                    document.getElementById('clearDestinationBtn').classList.add('show');
+                }
+            } catch (error) {
+                console.error('Error en geocodificación inversa:', error);
+
+                // Fallback sin geocodificación
+                destinationInfo = {
+                    name: 'Ubicación personalizada',
+                    address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                    coordinates: [lng, lat]
+                };
+
+                document.getElementById('destinationSearch').value = destinationInfo.name;
+                document.getElementById('destinationName').textContent = destinationInfo.name;
+                document.getElementById('destinationAddress').textContent = destinationInfo.address;
+                document.getElementById('selectedDestination').classList.add('show');
+                document.getElementById('clearDestinationBtn').classList.add('show');
+            }
+        }
+
+        // Agregar marcador de destino
+        function addDestinationMarker(lng, lat) {
+            // Remover marcador anterior si existe
+            if (destinationMarker) {
+                destinationMarker.remove();
+            }
+
+            // Crear elemento del marcador
+            const el = document.createElement('div');
+            el.className = 'mapbox-marker marker-destination';
+            el.innerHTML = '📍';
+
+            // Crear marcador
+            destinationMarker = new mapboxgl.Marker(el)
+                .setLngLat([lng, lat])
+                .setPopup(new mapboxgl.Popup().setHTML(
+                    `<strong>🎯 Tu destino</strong><br>${destinationInfo?.name || 'Destino seleccionado'}`
+                ))
+                .addTo(map);
+
+            // Centrar mapa para mostrar origen y destino
+            if (currentUser.lat && currentUser.lng) {
+                const bounds = new mapboxgl.LngLatBounds();
+                bounds.extend([currentUser.lng, currentUser.lat]);
+                bounds.extend([lng, lat]);
+                map.fitBounds(bounds, { padding: 50 });
+            }
+        }
+
+        // Limpiar destino
+        function clearDestination() {
+            destinationCoords = null;
+            destinationInfo = null;
+
+            // Limpiar UI
+            document.getElementById('destinationSearch').value = '';
+            document.getElementById('selectedDestination').classList.remove('show');
+            document.getElementById('clearDestinationBtn').classList.remove('show');
+            document.getElementById('destinationSelector').classList.remove('active');
+            document.getElementById('destinationSelector').innerHTML =
+                '<p>📍 <strong>Busca tu destino arriba o haz click en el mapa</strong></p>';
+
+            // Remover marcador
+            if (destinationMarker) {
+                destinationMarker.remove();
+                destinationMarker = null;
+            }
+
+            // Limpiar ruta
+            clearRoute();
+            hideSearchResults();
+            updateFABs();
+        }
+
+        // Dibujar ruta usando Mapbox Directions API
+        async function drawRoute() {
+            if (!currentUser.lat || !currentUser.lng || !destinationCoords) {
+                return;
+            }
+
+            try {
+                // Limpiar ruta anterior
+                clearRoute();
+
+                const start = [currentUser.lng, currentUser.lat];
+                const end = [destinationCoords.lng, destinationCoords.lat];
+
+                const response = await fetch(
+                    `https://api.mapbox.com/directions/v5/mapbox/driving/${start.join(',')};${end.join(',')}?` +
+                    `geometries=geojson&` +
+                    `access_token=${mapboxgl.accessToken}&` +
+                    `language=es`
+                );
+
+                const data = await response.json();
+
+                if (data.routes && data.routes.length > 0) {
+                    const route = data.routes[0];
+
+                    // Agregar ruta al mapa
+                    map.addSource('route', {
+                        type: 'geojson',
+                        data: {
+                            type: 'Feature',
+                            properties: {},
+                            geometry: route.geometry
+                        }
+                    });
+
+                    map.addLayer({
+                        id: 'route',
+                        type: 'line',
+                        source: 'route',
+                        layout: {
+                            'line-join': 'round',
+                            'line-cap': 'round'
+                        },
+                        paint: {
+                            'line-color': '#764ba2',
+                            'line-width': 4,
+                            'line-opacity': 0.8
+                        }
+                    });
+
+                    // Mostrar información de la ruta
+                    const distance = (route.distance / 1000).toFixed(2);
+                    const duration = Math.round(route.duration / 60);
+
+                    document.getElementById('routeInfo').style.display = 'block';
+                    document.getElementById('routeDistance').textContent = distance + ' km';
+                    document.getElementById('routeDuration').textContent = duration + ' min';
+
+                    currentRoute = route;
+                }
+            } catch (error) {
+                console.error('Error dibujando ruta:', error);
+                showNotification('Error calculando la ruta', 'error');
+            }
+        }
+
+        // Limpiar ruta del mapa
+        function clearRoute() {
+            if (map.getLayer('route')) {
+                map.removeLayer('route');
+            }
+            if (map.getSource('route')) {
+                map.removeSource('route');
+            }
+
+            currentRoute = null;
+            document.getElementById('routeInfo').style.display = 'none';
+        }
+
+        // Inicializar MQTT
+        function initMQTT() {
+            // Configuración mejorada para WSS
+            const clientId = currentUser.id || 'webclient_' + Math.random().toString(16).substr(2, 8);
+            const path = ''; // Ruta vacía (Mosquitto no usa /mqtt)
+            const timeout = 10; // Tiempo de espera en segundos
+
+            console.log(`Intentando conexión MQTT a: wss://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}${path}`);
+
+            mqttClient = new Paho.MQTT.Client(
+                MQTT_CONFIG.host,
+                MQTT_CONFIG.port,
+                path,
+                clientId
+            );
+
+            // Manejadores de eventos mejorados
+            mqttClient.onConnectionLost = function (response) {
+                console.error('Conexión MQTT perdida. Código:', response.errorCode, 'Razón:', response.errorMessage);
+                updateConnectionStatus(false);
+
+                // Reintento con backoff exponencial
+                const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts));
+                console.log(`Reintentando en ${delay / 1000} segundos...`);
+                setTimeout(initMQTT, delay);
+                reconnectAttempts++;
+            };
+
+            mqttClient.onMessageArrived = function (message) {
+                try {
+                    console.debug('Mensaje recibido:', message.destinationName, message.payloadString);
+                    handleMQTTMessage(message);
+                } catch (e) {
+                    console.error('Error procesando mensaje:', e);
+                }
+            };
+
+            // Opciones de conexión mejoradas
+            const connectOptions = {
+                timeout: timeout,
+                keepAliveInterval: 60,
+                cleanSession: true,
+                useSSL: true, // Obligatorio para WSS
+                onSuccess: function () {
+                    console.log('Conexión MQTT establecida con éxito');
+                    updateConnectionStatus(true);
+                    reconnectAttempts = 0;
+                    subscribeToTopics();
+                },
+                onFailure: function (error) {
+                    console.error('Error de conexión. Código:', error.errorCode, 'Error:', error.errorMessage);
+                    updateConnectionStatus(false);
+
+                    const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts));
+                    setTimeout(initMQTT, delay);
+                    reconnectAttempts++;
+                },
+
+            };
+
+            try {
+                mqttClient.connect(connectOptions);
+            } catch (e) {
+                console.error('Excepción al conectar:', e);
+                setTimeout(initMQTT, 5000);
+            }
+        }
+
+        // Variable para control de reintentos
+        let reconnectAttempts = 0;
+
+        // Suscribirse a los topics MQTT
+        function subscribeToTopics() {
+            Object.values(MQTT_CONFIG.topics).forEach(topic => {
+                mqttClient.subscribe(topic);
+                console.log('Suscrito a:', topic);
+            });
+        }
+
+        // Manejar mensajes MQTT
+        function handleMQTTMessage(message) {
+            try {
+                const data = JSON.parse(message.payloadString);
+                const topic = message.destinationName;
+
+                console.log('Mensaje recibido:', topic, data);
+
+                switch (topic) {
+                    case MQTT_CONFIG.topics.clients:
+                        handleClientMessage(data);
+                        break;
+                    case MQTT_CONFIG.topics.drivers:
+                        handleDriverMessage(data);
+                        break;
+                    case MQTT_CONFIG.topics.routes:
+                        handleRouteMessage(data);
+                        break;
+                    case MQTT_CONFIG.topics.messages:
+                        handleDirectMessage(data);
+                        break;
+                    case MQTT_CONFIG.topics.assignments:
+                        handleAssignmentMessage(data);
+                        break;
+                }
+            } catch (error) {
+                console.error('Error procesando mensaje MQTT:', error);
+            }
+        }
+
+        // Manejar mensajes de clientes
+        function handleClientMessage(data) {
+            if (data.action === 'request') {
+                if (data.userId !== currentUser.id) {
+                    addOrUpdateMarker(data, 'client');
+                    addToRequestsList(data, 'client');
+                }
+            } else if (data.action === 'cancel') {
+                removeMarker(data.userId);
+                removeFromRequestsList(data.userId);
+            }
+        }
+
+        // Manejar mensajes de conductores
+        function handleDriverMessage(data) {
+            if (data.action === 'available') {
+                if (data.userId !== currentUser.id) {
+                    addOrUpdateMarker(data, 'driver');
+                    addToRequestsList(data, 'driver');
+                }
+            } else if (data.action === 'accept') {
+                handleDriverAcceptance(data);
+            } else if (data.action === 'request_client') {
+                // Conductor solicita a cliente
+                if (data.targetClientId === currentUser.id) {
+                    handleDriverRequestToClient(data);
+                }
+            } else if (data.action === 'offline') {
+                removeMarker(data.userId);
+                removeFromRequestsList(data.userId);
+            }
+
+            // Mostrar lista de clientes si es taxista
+            if (currentUser.type === 'driver' && currentUser.status === 'available') {
+                updateClientList();
+            }
+        }
+
+        // Actualizar lista de clientes
+        function updateClientList() {
+            const requestsList = document.getElementById('requestsList');
+            requestsList.innerHTML = '<h3>👥 Clientes Solicitando Taxi</h3>';
+
+            let hasClients = false;
+
+            markers.forEach((marker, userId) => {
+                const userData = marker.userData;
+
+                if (userData.type === 'client' && userData.action === 'request' && userId !== currentUser.id) {
+                    hasClients = true;
+                    addClientToList(userData, userId);
+                }
+            });
+
+            if (!hasClients) {
+                requestsList.innerHTML += '<p>No hay clientes solicitando servicio en este momento</p>';
+            }
+        }
+
+        // Agregar cliente a la lista
+        function addClientToList(clientData, clientId) {
+            const requestsList = document.getElementById('requestsList');
+            const distance = calculateDistance(
+                currentUser.lat, currentUser.lng,
+                clientData.lat, clientData.lng
+            );
+
+            const clientItem = document.createElement('div');
+            clientItem.className = 'client-item';
+            clientItem.dataset.clientId = clientId;
+
+            clientItem.innerHTML = `
+                <div class="client-header">
+                    <p><strong>ID:</strong> ${clientData.userId ? clientData.userId.substring(0, 8) : 'N/A'}</p>
+                    <span class="distance-badge">${distance.toFixed(1)} km</span>
+                </div>
+                <p><strong>Ubicación:</strong> ${clientData.lat.toFixed(4)}, ${clientData.lng.toFixed(4)}</p>
+                ${clientData.destination ? `<p><strong>Destino:</strong> ${clientData.destination}</p>` : ''}
+                ${clientData.description ? `<p><strong>Notas:</strong> ${clientData.description}</p>` : ''}
+                <div class="client-actions">
+                    <button class="btn-accept" onclick="acceptClientRequest('${clientId}')">
+                        🚗 Aceptar Viaje
+                    </button>
+                    <button class="btn-chat" onclick="initiateChatWithClient('${clientId}')">
+                        💬 Chatear
+                    </button>
+                </div>
+            `;
+
+            requestsList.appendChild(clientItem);
+        }
+
+        // Aceptar solicitud de cliente
+        window.acceptClientRequest = function (clientId) {
+            const clientData = markers.get(clientId)?.userData;
+
+            if (!clientData) {
+                showNotification('Cliente no encontrado', 'error');
+                return;
+            }
+
+            const assignment = {
+                clientId: clientId,
+                driverId: currentUser.id,
+                action: 'assigned',
+                driverLocation: {
+                    lat: currentUser.lat,
+                    lng: currentUser.lng
+                },
+                clientLocation: {
+                    lat: clientData.lat,
+                    lng: clientData.lng
+                },
+                destination: clientData.destinationLat ? {
+                    lat: clientData.destinationLat,
+                    lng: clientData.destinationLng
+                } : null,
+                timestamp: Date.now()
+            };
+
+            publishMessage(MQTT_CONFIG.topics.assignments, assignment);
+            showNotification(`Viaje aceptado con cliente ${clientId.substring(0, 6)}`, 'success');
+
+            // Iniciar chat automáticamente
+            initiateChatWithClient(clientId);
+        };
+
+        // Iniciar chat con cliente
+        window.initiateChatWithClient = function (clientId) {
+            chatPartner = {
+                id: clientId,
+                type: 'client',
+                name: `Cliente ${clientId.substring(0, 6)}`
+            };
+
+            updateChatButton();
+            openChat();
+            addSystemMessage(`Chat iniciado con cliente ${clientId.substring(0, 6)}`);
+
+            // Notificar al cliente
+            const chatNotification = {
+                targetId: clientId,
+                senderId: currentUser.id,
+                message: `El mototaxista quiere comunicarse contigo`,
+                type: 'chat_init',
+                timestamp: Date.now()
+            };
+
+            publishMessage(MQTT_CONFIG.topics.messages, chatNotification);
+        };
+
+        // Manejar solicitud de conductor a cliente
+        function handleDriverRequestToClient(data) {
+            showNotification(`Conductor ${data.userId} quiere ofrecerte servicio`, 'info');
+
+            // Establecer chat con el conductor
+            chatPartner = {
+                id: data.userId,
+                type: 'driver'
+            };
+            updateChatButton();
+
+            // Incrementar mensajes no leídos
+            unreadMessages++;
+            updateUnreadIndicator();
+
+            // Agregar mensaje al chat
+            addSystemMessage(`El conductor ${data.userId} está interesado en tu viaje. Puedes chatear para acordar detalles.`);
+        }
+
+        // Manejar mensajes de asignación
+        function handleAssignmentMessage(data) {
+            if (data.clientId === currentUser.id || data.driverId === currentUser.id) {
+                activeAssignment = data;
+
+                if (data.action === 'assigned') {
+                    handleAssignment(data);
+                } else if (data.action === 'completed') {
+                    handleTripCompletion(data);
+                }
+            }
+        }
+
+        // Manejar asignación de viaje
+        function handleAssignment(data) {
+            if (data.clientId === currentUser.id) {
+                // Cliente: ocultar otros taxistas
+                markers.forEach((marker, markerId) => {
+                    if (markerId !== data.driverId && markerId !== currentUser.id) {
+                        marker.remove();
+                    }
+                });
+
+                showNotification(`¡Taxista ${data.driverId} ha aceptado tu solicitud!`, 'success');
+                currentUser.status = 'in_trip';
+
+                // Establecer chat con el conductor
+                chatPartner = {
+                    id: data.driverId,
+                    type: 'driver'
+                };
+                updateChatButton();
+                addSystemMessage('Ahora puedes chatear con tu conductor');
+
+                // Mostrar solo el taxista asignado
+                if (data.driverLocation) {
+                    addOrUpdateMarker({
+                        userId: data.driverId,
+                        lat: data.driverLocation.lat,
+                        lng: data.driverLocation.lng,
+                        status: 'assigned'
+                    }, 'driver');
+                }
+            } else if (data.driverId === currentUser.id) {
+                // Conductor: mostrar ruta al cliente
+                showNotification(`¡Nueva carrera asignada!`, 'success');
+                currentUser.status = 'in_trip';
+
+                // Establecer chat con el cliente
+                chatPartner = {
+                    id: data.clientId,
+                    type: 'client'
+                };
+                updateChatButton();
+                addSystemMessage('Ahora puedes chatear con tu pasajero');
+
+                if (data.clientLocation && data.destination) {
+                    drawAssignedRoute(data.clientLocation, data.destination);
+                }
+            }
+
+            updateUI();
+            updateFABs();
+        }
+
+        // Dibujar ruta asignada para conductor
+        async function drawAssignedRoute(clientLocation, destination) {
+            try {
+                clearRoute();
+
+                const waypoints = [
+                    [currentUser.lng, currentUser.lat],
+                    [clientLocation.lng, clientLocation.lat]
+                ];
+
+                if (destination) {
+                    waypoints.push([destination.lng, destination.lat]);
+                }
+
+                // Crear ruta multi-punto
+                const response = await fetch(
+                    `https://api.mapbox.com/directions/v5/mapbox/driving/${waypoints.map(w => w.join(',')).join(';')}?` +
+                    `geometries=geojson&` +
+                    `access_token=${mapboxgl.accessToken}&` +
+                    `language=es`
+                );
+
+                const data = await response.json();
+
+                if (data.routes && data.routes.length > 0) {
+                    const route = data.routes[0];
+
+                    map.addSource('route', {
+                        type: 'geojson',
+                        data: {
+                            type: 'Feature',
+                            properties: {},
+                            geometry: route.geometry
+                        }
+                    });
+
+                    map.addLayer({
+                        id: 'route',
+                        type: 'line',
+                        source: 'route',
+                        layout: {
+                            'line-join': 'round',
+                            'line-cap': 'round'
+                        },
+                        paint: {
+                            'line-color': '#28a745',
+                            'line-width': 5,
+                            'line-opacity': 0.8
+                        }
+                    });
+
+                    // Ajustar vista
+                    const bounds = new mapboxgl.LngLatBounds();
+                    waypoints.forEach(point => bounds.extend(point));
+                    map.fitBounds(bounds, { padding: 50 });
+                }
+            } catch (error) {
+                console.error('Error dibujando ruta asignada:', error);
+            }
+        }
+
+        // Inicializar event listeners
+        function initEventListeners() {
+            document.getElementById('userTypeSelect').addEventListener('change', function () {
+                currentUser.type = this.value;
+                updateUI();
+                updateFABs();
+            });
+
+            // Panel toggle
+            document.getElementById('panelToggle').addEventListener('click', function () {
+                document.getElementById('sidebar').classList.toggle('active');
+            });
+
+            // FAB Main button
+            document.getElementById('fabMain').addEventListener('click', function () {
+                if (fabMenuOpen) {
+                    toggleFABMenu();
+                } else {
+                    handleMainAction();
+                }
+            });
+
+            // FAB Secondary buttons
+            document.getElementById('fabDestination').addEventListener('click', startDestinationSelection);
+            document.getElementById('fabCancel').addEventListener('click', cancelCurrentRequest);
+            document.getElementById('fabConfirm').addEventListener('click', confirmAndSendRequest);
+            document.getElementById('fabChat').addEventListener('click', openChat);
+
+            // Click en elementos de la lista
+            document.getElementById('requestsList').addEventListener('click', function (e) {
+                const requestItem = e.target.closest('.request-item');
+                if (requestItem && e.target.classList.contains('accept-btn')) {
+                    const data = JSON.parse(requestItem.dataset.requestData);
+                    acceptRequest(data.userId, data);
+                }
+            });
+        }
+
+        // Manejar acción principal del FAB
+        function handleMainAction() {
+            if (currentUser.type === 'client') {
+                if (!currentUser.lat || !currentUser.lng) {
+                    getUserLocation();
+                } else if (!destinationCoords) {
+                    toggleFABMenu();
+                } else {
+                    confirmAndSendRequest();
+                }
+            } else {
+                sendDriverAvailability();
+            }
+        }
+
+        // Alternar menú FAB
+        function toggleFABMenu() {
+            fabMenuOpen = !fabMenuOpen;
+            document.getElementById('fabContainer').classList.toggle('fab-menu-open');
+            updateFABs();
+        }
+
+        // Actualizar FABs según estado
+        function updateFABs() {
+            // Ocultar todos los grupos primero
+            document.querySelectorAll('.fab-group').forEach(group => {
+                group.classList.remove('active');
+            });
+
+            // Mostrar solo el grupo necesario
+            if (currentUser.type === 'client') {
+                if (!currentUser.lat) {
+                    // Esperando ubicación
+                    document.getElementById('fabMainIcon').className = 'fas fa-location-arrow';
+                }
+                else if (!destinationCoords && !currentRequest) {
+                    // Esperando destino
+                    document.getElementById('waitingGroup').classList.add('active');
+                    document.getElementById('fabMainIcon').className = 'fas fa-map-marker-alt';
+                }
+                else if (destinationCoords && !currentRequest) {
+                    // Ruta lista para confirmar
+                    document.getElementById('routeGroup').classList.add('active');
+                    document.getElementById('fabMainIcon').className = 'fas fa-paper-plane';
+                }
+                else {
+                    // Viaje activo
+                    document.getElementById('activeGroup').classList.add('active');
+                    document.getElementById('fabMainIcon').className = 'fas fa-car-side';
+                }
+            }
+            else { // Driver
+                if (currentUser.status === 'available' || currentUser.status === 'in_trip') {
+                    document.getElementById('activeGroup').classList.add('active');
+                }
+                document.getElementById('fabMainIcon').className =
+                    currentUser.status === 'available' ? 'fas fa-bell' : 'fas fa-motorcycle';
+            }
+
+            // Mostrar indicador de chat si hay mensajes
+            document.getElementById('unreadIndicator').style.display =
+                unreadMessages > 0 ? 'flex' : 'none';
+            document.getElementById('unreadIndicator').textContent =
+                unreadMessages > 9 ? '9+' : unreadMessages;
+        }
+
+        // Obtener ubicación del usuario
+        function getUserLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        updateLocation(position.coords.latitude, position.coords.longitude);
+
+                        if (currentUser.type === 'client') {
+                            showNotification('Ubicación actualizada. Ahora selecciona tu destino.', 'info');
+                            updateFABs();
+                        }
+                    },
+                    function (error) {
+                        console.error('Error obteniendo ubicación:', error);
+                        // Usar ubicación por defecto en Tingo María
+                        updateLocation(-9.2945, -76.0073);
+                    }
+                );
+            } else {
+                updateLocation(-9.2945, -76.0073);
+            }
+        }
+
+        // Actualizar ubicación
+        function updateLocation(lat, lng) {
+            currentUser.lat = lat;
+            currentUser.lng = lng;
+
+            document.getElementById('lat').textContent = lat.toFixed(6);
+            document.getElementById('lng').textContent = lng.toFixed(6);
+
+            // Centrar mapa en la nueva ubicación
+            map.setCenter([lng, lat]);
+            map.setZoom(16);
+
+            // Agregar/actualizar marcador del usuario actual
+            addOrUpdateMarker(currentUser, currentUser.type);
+
+            updateFABs();
+        }
+
+        // Iniciar selección de destino
+        function startDestinationSelection() {
+            selectingDestination = true;
+            document.getElementById('destinationSelector').classList.add('active');
+            document.getElementById('destinationSelector').innerHTML =
+                '<p>🎯 <strong>Haz click en el mapa para marcar tu destino</strong></p>';
+
+            map.getContainer().style.cursor = 'crosshair';
+            showNotification('Haz click en el mapa para seleccionar tu destino', 'info');
+        }
+
+        // Confirmar y enviar solicitud
+        function confirmAndSendRequest() {
+            if (!currentUser.lat || !currentUser.lng || !destinationCoords) {
+                alert('Por favor, selecciona tu ubicación y destino');
+                return;
+            }
+
+            const destination = document.getElementById('destination').value.trim();
+            const description = document.getElementById('description').value.trim();
+
+            const request = {
+                userId: currentUser.id,
+                action: 'request',
+                lat: currentUser.lat,
+                lng: currentUser.lng,
+                destinationLat: destinationCoords.lat,
+                destinationLng: destinationCoords.lng,
+                destination: destinationInfo?.name || destination || 'Destino seleccionado en el mapa',
+                description: description,
+                timestamp: Date.now(),
+                status: 'waiting'
+            };
+
+            publishMessage(MQTT_CONFIG.topics.clients, request);
+            currentRequest = request;
+            currentUser.status = 'requesting';
+            updateUI();
+            updateFABs();
+
+            showNotification('Solicitud de taxi enviada. Buscando conductores cercanos...', 'success');
+
+            // Mostrar taxistas cercanos
+            highlightNearbyDrivers();
+        }
+
+        // Resaltar conductores cercanos
+        function highlightNearbyDrivers() {
+            const maxDistance = 2; // km
+
+            markers.forEach((marker, markerId) => {
+                const markerData = marker.userData;
+                if (markerData && markerData.type === 'driver') {
+                    const distance = calculateDistance(
+                        currentUser.lat, currentUser.lng,
+                        markerData.lat, markerData.lng
+                    );
+
+                    if (distance <= maxDistance) {
+                        // Agregar efecto visual
+                        const markerEl = marker.getElement();
+                        if (markerEl) {
+                            markerEl.classList.add('pulse');
+                        }
+
+                        // Notificar al conductor
+                        const notification = {
+                            targetId: markerId,
+                            senderId: currentUser.id,
+                            message: `Nueva solicitud de taxi cerca (${distance.toFixed(1)} km)`,
+                            type: 'nearby_request',
+                            data: currentRequest
+                        };
+                        publishMessage(MQTT_CONFIG.topics.messages, notification);
+                    }
+                }
+            });
+        }
+
+        // Enviar disponibilidad del conductor
+        function sendDriverAvailability() {
+            if (!currentUser.lat || !currentUser.lng) {
+                alert('Por favor, permite el acceso a tu ubicación');
+                return;
+            }
+
+            const description = document.getElementById('description').value.trim();
+            const price = document.getElementById('price').value;
+
+            const availability = {
+                userId: currentUser.id,
+                action: 'available',
+                lat: currentUser.lat,
+                lng: currentUser.lng,
+                description: description || 'Mototaxi disponible',
+                price: price || '10.00',
+                timestamp: Date.now(),
+                status: 'available'
+            };
+
+            publishMessage(MQTT_CONFIG.topics.drivers, availability);
+            currentRequest = availability;
+            currentUser.status = 'available';
+            updateUI();
+            updateFABs();
+
+            showNotification('Ahora estás disponible para servicios', 'success');
+        }
+
+        // Cancelar solicitud actual
+        function cancelCurrentRequest() {
+            if (currentRequest) {
+                const cancelMessage = {
+                    userId: currentUser.id,
+                    action: 'cancel',
+                    timestamp: Date.now()
+                };
+
+                const topic = currentUser.type === 'client' ?
+                    MQTT_CONFIG.topics.clients : MQTT_CONFIG.topics.drivers;
+
+                publishMessage(topic, cancelMessage);
+
+                currentRequest = null;
+                currentUser.status = 'waiting';
+                clearDestination();
+                updateUI();
+                updateFABs();
+
+                showNotification('Solicitud cancelada', 'info');
+            }
+        }
+
+        // Aceptar solicitud (para conductores)
+        function acceptRequest(requestId, clientData) {
+            // Si el conductor acepta a un cliente
+            if (currentUser.type === 'driver' && clientData.action === 'request') {
+                const acceptance = {
+                    clientId: requestId,
+                    driverId: currentUser.id,
+                    action: 'assigned',
+                    driverLocation: {
+                        lat: currentUser.lat,
+                        lng: currentUser.lng
+                    },
+                    clientLocation: {
+                        lat: clientData.lat,
+                        lng: clientData.lng
+                    },
+                    destination: clientData.destinationLat ? {
+                        lat: clientData.destinationLat,
+                        lng: clientData.destinationLng
+                    } : null,
+                    timestamp: Date.now()
+                };
+
+                publishMessage(MQTT_CONFIG.topics.assignments, acceptance);
+
+                // Notificar al cliente
+                const notification = {
+                    targetId: requestId,
+                    senderId: currentUser.id,
+                    message: `Conductor ${currentUser.id} ha aceptado tu solicitud`,
+                    type: 'acceptance'
+                };
+                publishMessage(MQTT_CONFIG.topics.messages, notification);
+
+                currentUser.status = 'in_trip';
+                updateUI();
+                updateFABs();
+                showNotification('Solicitud aceptada. Dirigiéndose al cliente...', 'success');
+            }
+            // Si el cliente solicita a un conductor específico
+            else if (currentUser.type === 'client' && clientData.action === 'available') {
+                requestServiceFromDriver(requestId, clientData);
+            }
+        }
+
+        // Cliente solicita servicio a conductor específico
+        function requestServiceFromDriver(driverId, driverData) {
+            const destination = document.getElementById('destination').value.trim();
+
+            // Si no hay destino seleccionado, pedir que lo seleccione
+            if (!destinationCoords && !destination) {
+                showNotification('Por favor, selecciona primero tu destino en el mapa', 'warning');
+                startDestinationSelection();
+                return;
+            }
+
+            const serviceRequest = {
+                userId: currentUser.id,
+                action: 'request',
+                targetDriverId: driverId,
+                lat: currentUser.lat,
+                lng: currentUser.lng,
+                destinationLat: destinationCoords?.lat,
+                destinationLng: destinationCoords?.lng,
+                destination: destinationInfo?.name || destination || 'Destino seleccionado en el mapa',
+                description: document.getElementById('description').value.trim(),
+                driverLat: driverData.lat,
+                driverLng: driverData.lng,
+                timestamp: Date.now()
+            };
+
+            // Establecer chat con el conductor
+            chatPartner = {
+                id: driverId,
+                type: 'driver'
+            };
+            updateChatButton();
+
+            // Enviar mensaje directo al conductor
+            const directMessage = {
+                targetId: driverId,
+                senderId: currentUser.id,
+                message: `Cliente te solicita servicio a: ${serviceRequest.destination}`,
+                type: 'service_request',
+                data: serviceRequest
+            };
+
+            publishMessage(MQTT_CONFIG.topics.messages, directMessage);
+
+            currentUser.status = 'requesting';
+            currentRequest = serviceRequest;
+            updateUI();
+            updateFABs();
+
+            showNotification(`Solicitud enviada al conductor ${driverId}`, 'success');
+
+            // Abrir chat automáticamente
+            openChat();
+            addSystemMessage(`Has solicitado servicio al conductor. Puedes chatear mientras esperas respuesta.`);
+        }
+
+        // Publicar mensaje MQTT
+        function publishMessage(topic, data) {
+            if (mqttClient && mqttClient.isConnected()) {
+                const message = new Paho.MQTT.Message(JSON.stringify(data));
+                message.destinationName = topic;
+                mqttClient.send(message);
+                console.log('Mensaje enviado a', topic, data);
+            } else {
+                console.error('Cliente MQTT no conectado');
+                showNotification('Error de conexión. Reintentando...', 'error');
+            }
+        }
+
+        // Agregar o actualizar marcador en el mapa
+        function addOrUpdateMarker(data, type) {
+            const markerId = data.userId;
+
+            // Remover marcador existente si existe
+            if (markers.has(markerId)) {
+                markers.get(markerId).remove();
+            }
+
+            // Determinar clase CSS según el tipo
+            let markerClass = '';
+            let markerIcon = '';
+
+            if (markerId === currentUser.id) {
+                markerClass = 'marker-user';
+                markerIcon = '👤';
+            } else if (type === 'client') {
+                markerClass = 'marker-client';
+                markerIcon = '🙋';
+            } else if (type === 'driver') {
+                markerClass = 'marker-driver';
+                markerIcon = '🏍';
+            }
+
+            // Crear elemento del marcador
+            const el = document.createElement('div');
+            el.className = `mapbox-marker ${markerClass}`;
+            el.innerHTML = markerIcon;
+
+            // Crear popup con información
+            let popupContent = `
+                <div style="min-width: 200px;">
+                    <h4>${type === 'client' ? '🙋‍♂️ Cliente' : '🏍️ Mototaxista'}</h4>
+                    <p><strong>ID:</strong> ${data.userId ? data.userId.substring(0, 8) : 'N/A'}</p>
+                    <p><strong>Hora:</strong> ${new Date(data.timestamp).toLocaleTimeString()}</p>
+            `;
+
+            if (type === 'client') {
+                popupContent += `
+                    ${data.destination ? `<p><strong>Destino:</strong> ${data.destination}</p>` : ''}
+                    ${data.description ? `<p><strong>Detalles:</strong> ${data.description}</p>` : ''}
+                    <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
+                        <button onclick="acceptClientRequest('${data.userId}')"
+                            style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                            ✅ Aceptar
+                        </button>
+                        <button onclick="initiateContact('${data.userId}', 'client')"
+                            style="background: #17a2b8; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                            💬 Chatear
+                        </button>
+                    </div>
+                `;
+            } else if (type === 'driver') {
+                popupContent += `
+                    ${data.description ? `<p><strong>Descripción:</strong> ${data.description}</p>` : ''}
+                    ${data.price ? `<p><strong>Precio:</strong> S/ ${data.price}</p>` : ''}
+                `;
+            }
+
+            // Botón de contacto para todos los usuarios excepto uno mismo
+            if (currentUser.id !== data.userId) {
+                popupContent += `
+                    <button onclick="initiateContact('${data.userId}', '${type}')"
+                        style="background: #17a2b8; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-top: 4px;">
+                        💬 Contactar
+                    </button>
+                `;
+            }
+
+            popupContent += '</div>';
+
+            // Crear marcador
+            const marker = new mapboxgl.Marker(el)
+                .setLngLat([data.lng, data.lat])
+                .setPopup(new mapboxgl.Popup().setHTML(popupContent))
+                .addTo(map);
+
+            // Guardar datos del usuario en el marcador
+            marker.userData = { ...data, type };
+
+            // Guardar referencia del marcador
+            markers.set(markerId, marker);
+
+            // Si es el usuario actual, abrir popup automáticamente
+            if (markerId === currentUser.id) {
+                marker.togglePopup();
+            }
+        }
+
+        // Remover marcador
+        function removeMarker(markerId) {
+            if (markers.has(markerId)) {
+                markers.get(markerId).remove();
+                markers.delete(markerId);
+            }
+        }
+
+        // Agregar a lista de solicitudes
+        function addToRequestsList(data, type) {
+            const requestsList = document.getElementById('requestsList');
+            const existingItem = document.getElementById(`request_${data.userId}`);
+
+            if (existingItem) {
+                existingItem.remove();
+            }
+
+            const distance = calculateDistance(
+                currentUser.lat, currentUser.lng,
+                data.lat, data.lng
+            );
+
+            const requestItem = document.createElement('div');
+            requestItem.className = `request-item ${type}`;
+            requestItem.id = `request_${data.userId}`;
+            requestItem.dataset.requestData = JSON.stringify(data);
+
+            let content = `
+                <h4>${type === 'client' ? '🙋‍♂️ Cliente' : '🏍️ Mototaxista'}
+                    <span class="distance-badge">${distance.toFixed(1)} km</span>
+                </h4>
+                <p>📍 ${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}</p>
+                <p>🕒 ${new Date(data.timestamp).toLocaleTimeString()}</p>
+            `;
+
+            if (type === 'client' && data.destination) {
+                content += `<p>🎯 ${data.destination}</p>`;
+            }
+
+            if (data.description) {
+                content += `<p>💬 ${data.description}</p>`;
+            }
+
+            if (type === 'driver' && data.price) {
+                content += `<p>💰 S/ ${data.price}</p>`;
+            }
+
+            // Botones de acción
+            if (currentUser.type !== type && currentUser.id !== data.userId && currentUser.status === 'waiting') {
+                content += `
+                    <button class="accept-btn">
+                        ${type === 'client' ? 'Aceptar' : 'Solicitar'}
+                    </button>
+                    <button class="contact-btn" onclick="initiateContact('${data.userId}', '${type}')">
+                        💬 Contactar
+                    </button>
+                `;
+            }
+
+            requestItem.innerHTML = content;
+
+            // Insertar ordenado por distancia
+            const items = requestsList.querySelectorAll('.request-item');
+            let inserted = false;
+
+            for (let item of items) {
+                const itemData = JSON.parse(item.dataset.requestData);
+                const itemDistance = calculateDistance(
+                    currentUser.lat, currentUser.lng,
+                    itemData.lat, itemData.lng
+                );
+
+                if (distance < itemDistance) {
+                    requestsList.insertBefore(requestItem, item);
+                    inserted = true;
+                    break;
+                }
+            }
+
+            if (!inserted) {
+                requestsList.appendChild(requestItem);
+            }
+        }
+
+        // Remover de lista de solicitudes
+        function removeFromRequestsList(userId) {
+            const item = document.getElementById(`request_${userId}`);
+            if (item) {
+                item.remove();
+            }
+        }
+
+        // Manejar aceptación del conductor
+        function handleDriverAcceptance(data) {
+            if (data.targetId === currentUser.id) {
+                showNotification('¡Un conductor aceptó tu solicitud!', 'success');
+                currentUser.status = 'matched';
+                updateUI();
+                updateFABs();
+            }
+        }
+
+        // Manejar mensajes de rutas
+        function handleRouteMessage(data) {
+            // Implementar actualización de rutas en tiempo real si es necesario
+        }
+
+        // Manejar mensajes directos
+        function handleDirectMessage(data) {
+            if (data.targetId === currentUser.id) {
+                if (data.type === 'chat') {
+                    // Mensaje de chat
+                    handleChatMessage(data);
+                } else {
+                    // Otros tipos de mensajes
+                    showNotification(data.message, data.type || 'info');
+
+                    // Si es una solicitud cercana, resaltar en el mapa
+                    if (data.type === 'nearby_request' && data.data) {
+                        highlightRequest(data.data);
+                    }
+
+                    // Si es una solicitud de contacto
+                    if (data.type === 'contact_request') {
+                        handleContactRequest(data);
+                    }
+                }
+            }
+        }
+
+        // Iniciar contacto con otro usuario
+        window.initiateContact = function (userId, userType) {
+            const targetUser = {
+                id: userId,
+                type: userType
+            };
+
+            // Verificar si ya hay un chat activo
+            if (chatPartner && chatPartner.id === userId) {
+                openChat();
+                return;
+            }
+
+            // Establecer nuevo chat
+            chatPartner = targetUser;
+            chatMessages = [];
+
+            // Enviar solicitud de contacto
+            const contactRequest = {
+                targetId: userId,
+                senderId: currentUser.id,
+                senderType: currentUser.type,
+                message: `${currentUser.type === 'client' ? 'Cliente' : 'Taxista'} ${currentUser.id} quiere contactarte`,
+                type: 'contact_request',
+                timestamp: Date.now()
+            };
+
+            publishMessage(MQTT_CONFIG.topics.messages, contactRequest);
+
+            // Abrir chat
+            openChat();
+
+            // Agregar mensaje de sistema
+            addSystemMessage('Chat iniciado. Puedes enviar mensajes al ' +
+                (userType === 'client' ? 'cliente' : 'taxista'));
+        };
+
+        // Manejar solicitud de contacto
+        function handleContactRequest(data) {
+            if (!chatPartner || chatPartner.id !== data.senderId) {
+                chatPartner = {
+                    id: data.senderId,
+                    type: data.senderType
+                };
+                chatMessages = [];
+            }
+
+            // Mostrar botón de chat si no está visible
+            updateChatButton();
+
+            // Incrementar contador de mensajes no leídos
+            if (!document.getElementById('chatContainer').classList.contains('active')) {
+                unreadMessages++;
+                updateUnreadIndicator();
+            }
+        }
+
+        // Manejar mensaje de chat
+        function handleChatMessage(data) {
+            if (data.senderId === chatPartner?.id) {
+                const message = {
+                    id: Date.now(),
+                    senderId: data.senderId,
+                    text: data.text,
+                    timestamp: data.timestamp,
+                    type: 'received'
+                };
+
+                chatMessages.push(message);
+
+                if (document.getElementById('chatContainer').classList.contains('active')) {
+                    displayMessage(message);
+                    scrollToBottom();
+                } else {
+                    unreadMessages++;
+                    updateUnreadIndicator();
+                }
+
+                // Sonido de notificación
+                playNotificationSound();
+            }
+        }
+
+        // Abrir chat
+        window.openChat = function () {
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.classList.add('active');
+
+            // Actualizar nombre del chat
+            const partnerType = chatPartner.type === 'client' ? 'Cliente' : 'Taxista';
+            document.getElementById('chatPartnerName').textContent = `${partnerType} ${chatPartner.id.substring(0, 6)}`;
+
+            // Limpiar mensajes no leídos
+            unreadMessages = 0;
+            updateUnreadIndicator();
+
+            // Mostrar mensajes existentes
+            displayAllMessages();
+
+            // Focus en input
+            document.getElementById('chatInput').focus();
+
+            toggleFABMenu(); // Cerrar menú FAB si está abierto
+        };
+
+        // Cerrar chat
+        window.closeChat = function () {
+            document.getElementById('chatContainer').classList.remove('active');
+        };
+
+        // Enviar mensaje de chat
+        window.sendChatMessage = function () {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+
+            if (!text || !chatPartner) return;
+
+            const message = {
+                id: Date.now(),
+                senderId: currentUser.id,
+                text: text,
+                timestamp: Date.now(),
+                type: 'sent'
+            };
+
+            // Agregar a mensajes locales
+            chatMessages.push(message);
+            displayMessage(message);
+            scrollToBottom();
+
+            // Enviar por MQTT
+            const chatData = {
+                targetId: chatPartner.id,
+                senderId: currentUser.id,
+                text: text,
+                type: 'chat',
+                timestamp: message.timestamp
+            };
+
+            publishMessage(MQTT_CONFIG.topics.messages, chatData);
+
+            // Limpiar input
+            input.value = '';
+        };
+
+        // Manejar tecla Enter en chat
+        window.handleChatKeyPress = function (event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendChatMessage();
+            }
+        };
+
+        // Mostrar mensaje en el chat
+        function displayMessage(message) {
+            const messagesContainer = document.getElementById('chatMessages');
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${message.type}`;
+
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = `message-bubble ${message.type}`;
+
+            const textP = document.createElement('p');
+            textP.style.margin = '0';
+            textP.textContent = message.text;
+
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = new Date(message.timestamp).toLocaleTimeString();
+
+            bubbleDiv.appendChild(textP);
+            bubbleDiv.appendChild(timeDiv);
+            messageDiv.appendChild(bubbleDiv);
+
+            messagesContainer.appendChild(messageDiv);
+        }
+
+        // Mostrar todos los mensajes
+        function displayAllMessages() {
+            const messagesContainer = document.getElementById('chatMessages');
+            messagesContainer.innerHTML = '';
+
+            chatMessages.forEach(message => {
+                displayMessage(message);
+            });
+
+            scrollToBottom();
+        }
+
+        // Agregar mensaje del sistema
+        function addSystemMessage(text) {
+            const message = {
+                id: Date.now(),
+                senderId: 'system',
+                text: text,
+                timestamp: Date.now(),
+                type: 'received'
+            };
+
+            chatMessages.push(message);
+
+            if (document.getElementById('chatContainer').classList.contains('active')) {
+                displayMessage(message);
+                scrollToBottom();
+            }
+        }
+
+        // Scroll al final del chat
+        function scrollToBottom() {
+            const messagesContainer = document.getElementById('chatMessages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Actualizar botón de chat
+        function updateChatButton() {
+            const fabChat = document.getElementById('fabChat');
+
+            if (chatPartner) {
+                fabChat.classList.add('show');
+            } else {
+                fabChat.classList.remove('show');
+            }
+
+            updateFABs();
+        }
+
+        // Actualizar indicador de mensajes no leídos
+        function updateUnreadIndicator() {
+            const indicator = document.getElementById('unreadIndicator');
+
+            if (unreadMessages > 0) {
+                indicator.style.display = 'flex';
+                indicator.textContent = unreadMessages > 9 ? '9+' : unreadMessages;
+            } else {
+                indicator.style.display = 'none';
+            }
+        }
+
+        // Reproducir sonido de notificación
+        function playNotificationSound() {
+            // Crear un simple beep usando Web Audio API
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.frequency.value = 800;
+                gainNode.gain.value = 0.1;
+
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.1);
+            } catch (e) {
+                console.log('No se pudo reproducir sonido:', e);
+            }
+        }
+
+        // Resaltar solicitud en el mapa
+        function highlightRequest(requestData) {
+            const marker = markers.get(requestData.userId);
+            if (marker) {
+                marker.togglePopup();
+                // Agregar efecto visual temporal
+                const element = marker.getElement();
+                if (element) {
+                    element.classList.add('pulse');
+                    setTimeout(() => {
+                        element.classList.remove('pulse');
+                    }, 5000);
+                }
+            }
+        }
+
+        // Manejar finalización de viaje
+        function handleTripCompletion(data) {
+            activeAssignment = null;
+            currentUser.status = 'waiting';
+            currentRequest = null;
+            chatPartner = null;
+            chatMessages = [];
+
+            // Limpiar mapa
+            clearRoute();
+            clearDestination();
+
+            // Recargar marcadores
+            markers.forEach((marker, markerId) => {
+                if (markerId !== currentUser.id) {
+                    marker.remove();
+                }
+            });
+            markers.clear();
+
+            // Volver a agregar marcador del usuario
+            addOrUpdateMarker(currentUser, currentUser.type);
+
+            updateUI();
+            updateFABs();
+            closeChat();
+            showNotification('Viaje completado', 'success');
+        }
+
+        // Actualizar interfaz de usuario
+        function updateUI() {
+            const userTypeSelect = document.getElementById('userTypeSelect');
+            const formTitle = document.getElementById('formTitle');
+            const priceGroup = document.getElementById('priceGroup');
+            const userId = document.getElementById('userId');
+            const userStatus = document.getElementById('userStatus');
+
+            // Actualizar información del usuario
+            userId.textContent = currentUser.id.substring(0, 8);
+            userStatus.textContent = getStatusText(currentUser.status);
+
+            // Deshabilitar cambio de tipo durante viaje
+            userTypeSelect.disabled = currentUser.status === 'in_trip' || currentUser.status === 'requesting';
+
+            // Actualizar según tipo de usuario
+            if (currentUser.type === 'client') {
+                formTitle.textContent = 'Solicitar Taxi';
+                priceGroup.style.display = 'none';
+            } else {
+                formTitle.textContent = 'Ofrecer Servicio';
+                priceGroup.style.display = 'block';
+            }
+
+            // Deshabilitar controles durante viaje
+            if (currentUser.status === 'in_trip' || currentUser.status === 'requesting') {
+                document.getElementById('destinationSearch').disabled = true;
+                document.getElementById('destination').disabled = true;
+                document.getElementById('description').disabled = true;
+                document.getElementById('price').disabled = true;
+            } else {
+                document.getElementById('destinationSearch').disabled = false;
+                document.getElementById('destination').disabled = false;
+                document.getElementById('description').disabled = false;
+                document.getElementById('price').disabled = false;
+            }
+        }
+
+        // Obtener texto de estado
+        function getStatusText(status) {
+            const statusTexts = {
+                'waiting': '⏳ Esperando',
+                'requesting': '🚕 Solicitando taxi',
+                'available': '🏍️ Disponible',
+                'matched': '✅ Emparejado',
+                'in_trip': '🚗 En viaje'
+            };
+            return statusTexts[status] || status;
+        }
+
+        // Actualizar estado de conexión
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connectionStatus');
+            if (connected) {
+                statusEl.className = 'connection-status connected';
+                statusEl.textContent = '🟢 Conectado a ChasquiX';
+            } else {
+                statusEl.className = 'connection-status disconnected';
+                statusEl.textContent = '🔴 Desconectado';
+            }
+        }
+
+        // Mostrar notificación
+        function showNotification(message, type = 'info') {
+            // Crear elemento de notificación
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+
+            // Colores según tipo
+            const colors = {
+                'success': '#28a745',
+                'error': '#dc3545',
+                'warning': '#ffc107',
+                'info': '#17a2b8'
+            };
+
+            notification.style.backgroundColor = colors[type] || colors.info;
+            notification.textContent = message;
+
+            document.body.appendChild(notification);
+
+            // Animación de entrada
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+
+            // Remover después de 4 segundos
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 4000);
+        }
+
+        // Calcular distancia entre dos puntos (fórmula de Haversine)
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371; // Radio de la Tierra en km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // Actualizar ubicación en tiempo real (cada 30 segundos)
+        function startLocationTracking() {
+            setInterval(() => {
+                if (navigator.geolocation && (currentUser.status === 'available' || currentUser.status === 'in_trip')) {
+                    navigator.geolocation.getCurrentPosition(
+                        function (position) {
+                            const newLat = position.coords.latitude;
+                            const newLng = position.coords.longitude;
+
+                            // Solo actualizar si la posición cambió significativamente
+                            const distance = calculateDistance(currentUser.lat, currentUser.lng, newLat, newLng);
+                            if (distance > 0.01) { // ~10 metros
+                                updateLocation(newLat, newLng);
+
+                                // Publicar nueva ubicación si está activo
+                                if (currentRequest) {
+                                    const locationUpdate = {
+                                        ...currentRequest,
+                                        lat: newLat,
+                                        lng: newLng,
+                                        timestamp: Date.now()
+                                    };
+
+                                    const topic = currentUser.type === 'client' ?
+                                        MQTT_CONFIG.topics.clients : MQTT_CONFIG.topics.drivers;
+
+                                    publishMessage(topic, locationUpdate);
+                                }
+                            }
+                        },
+                        function (error) {
+                            console.log('Error obteniendo ubicación:', error);
+                        }
+                    );
+                }
+            }, 30000); // 30 segundos
+        }
+
+        // Iniciar seguimiento de ubicación al cargar
+        setTimeout(startLocationTracking, 5000);
+
+        // Limpiar al cerrar la ventana
+        window.addEventListener('beforeunload', function () {
+            if (currentRequest) {
+                cancelCurrentRequest();
+            }
+            if (mqttClient && mqttClient.isConnected()) {
+                mqttClient.disconnect();
+            }
+        });
+
+        // Funciones globales para compatibilidad
+        window.clearDestination = clearDestination;
+
+        // Pasos de onboarding para mobile, textos breves
+const onboardingStepsByType = {
+  client: [
+    {
+      target: '#userTypeSelect',
+      text: 'Selecciona aquí si eres <b>Cliente</b> para pedir taxi o <b>Mototaxista</b> para ofrecer servicio.',
+      align: 'bottom'
+    },
+    {
+      target: '#destinationSearch',
+      text: 'Busca tu destino o toca el mapa para seleccionarlo.',
+      align: 'bottom'
+    },
+    {
+      target: '#fabMain',
+      text: 'Usa este botón para iniciar o cancelar tu solicitud.',
+      align: 'left'
+    },
+    {
+      target: '#routeInfo',
+      text: 'Aquí verás distancia y tiempo estimado de tu viaje.',
+      align: 'bottom'
+    },
+    {
+      target: '#requestsList',
+      text: 'Aquí verás actividad y mototaxistas disponibles.',
+      align: 'bottom'
+    },
+    {
+      target: '#chatContainer',
+      text: 'Cuando tu viaje esté activo, chatea con el conductor aquí.',
+      align: 'bottom'
+    }
+  ],
+  driver: [
+    {
+      target: '#userTypeSelect',
+      text: 'Selecciona <b>Mototaxista</b> para recibir viajes.',
+      align: 'bottom'
+    },
+    {
+      target: '#fabMain',
+      text: 'Activa tu disponibilidad para empezar a recibir pedidos.',
+      align: 'left'
+    },
+    {
+      target: '#requestsList',
+      text: 'Aquí ves los clientes que solicitan taxi cerca.',
+      align: 'bottom'
+    },
+    {
+      target: '#chatContainer',
+      text: 'Cuando tomes un viaje, chatea con el cliente aquí.',
+      align: 'bottom'
+    }
+  ]
+};
+
+let onboardingStep = 0;
+let onboardingType = 'client';
+
+function startOnboarding(role) {
+  onboardingType = role || (document.getElementById('userTypeSelect')?.value || 'client');
+  onboardingStep = 0;
+  document.getElementById('onboardingOverlay').style.display = 'block';
+  showOnboardingStep(onboardingStep);
+  document.body.style.overflow = 'hidden';
+}
+
+function showOnboardingStep(index) {
+  const steps = onboardingStepsByType[onboardingType] || onboardingStepsByType.client;
+  if (!steps[index]) return closeOnboarding();
+
+  // Remove highlight
+  document.querySelectorAll('.onboarding-highlight').forEach(el => el.classList.remove('onboarding-highlight'));
+  // Hide arrow by default
+  document.getElementById('onboardingArrow').style.display = 'none';
+
+  const step = steps[index];
+  const target = document.querySelector(step.target);
+  if (!target) return nextOnboardingStep(); // Si no existe, salta
+
+  // Highlight target
+  target.classList.add('onboarding-highlight');
+  // Si el elemento está fuera del viewport, haz scroll
+  const rect = target.getBoundingClientRect();
+  const absTop = window.scrollY + rect.top;
+  if (absTop < window.scrollY || absTop + rect.height > window.scrollY + window.innerHeight) {
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // Tooltip
+  const tooltip = document.getElementById('onboardingTooltip');
+  let top = window.scrollY + rect.top, left = window.scrollX + rect.left;
+  let isMobile = window.innerWidth < 700;
+  let arrow = document.getElementById('onboardingArrow');
+
+  // Colocación inteligente
+  if (isMobile) {
+    tooltip.style.left = '2vw';
+    tooltip.style.right = '2vw';
+    tooltip.style.width = '96vw';
+    tooltip.style.maxWidth = '96vw';
+  }
+
+  // Según alineación
+  let arrowX = '50%', arrowY = 0;
+  if (step.align === 'bottom') {
+    top += rect.height + 18;
+    arrow.style.top = '-26px';
+    arrow.style.display = 'block';
+  } else if (step.align === 'top') {
+    top -= tooltip.offsetHeight + 26;
+    arrow.style.top = tooltip.offsetHeight + 'px';
+    arrow.style.display = 'block';
+  } else if (step.align === 'right') {
+    left += rect.width + 10;
+    arrow.style.display = 'none';
+  } else if (step.align === 'left') {
+    left -= (isMobile ? 0 : 340);
+    arrow.style.display = 'none';
+  }
+
+  // Centrado si fuera de la vista
+  if (top + tooltip.offsetHeight > window.scrollY + window.innerHeight - 40) {
+    top = window.scrollY + window.innerHeight - tooltip.offsetHeight - 24;
+    arrow.style.display = 'none';
+  }
+  if (top < window.scrollY + 10) {
+    top = window.scrollY + 20;
+    arrow.style.display = 'none';
+  }
+  if (left < 10) left = 10;
+
+  tooltip.style.top = `${top}px`;
+  tooltip.style.left = `${left}px`;
+  tooltip.querySelector('#onboardingStepContent').innerHTML = step.text;
+
+  // Muestra la flecha solo si está debajo
+  if (step.align === 'bottom' && !isMobile) {
+    arrow.style.display = 'block';
+    arrow.style.top = '-26px';
+  } else {
+    arrow.style.display = 'none';
+  }
+
+  // Botones prev/sig
+  document.getElementById('onboardingPrevBtn').style.display = (index > 0) ? 'inline-block' : 'none';
+  document.getElementById('onboardingNextBtn').textContent = (index === steps.length - 1) ? 'Finalizar' : 'Siguiente';
+
+  onboardingStep = index;
+}
+
+function nextOnboardingStep() {
+  const steps = onboardingStepsByType[onboardingType] || onboardingStepsByType.client;
+  if (onboardingStep + 1 < steps.length) {
+    showOnboardingStep(onboardingStep + 1);
+  } else {
+    closeOnboarding();
+  }
+}
+
+function prevOnboardingStep() {
+  if (onboardingStep > 0) showOnboardingStep(onboardingStep - 1);
+}
+
+function closeOnboarding() {
+  document.getElementById('onboardingOverlay').style.display = 'none';
+  document.body.style.overflow = '';
+  document.querySelectorAll('.onboarding-highlight').forEach(el => el.classList.remove('onboarding-highlight'));
+  localStorage.setItem('chasquix_onboarded', 'yes');
+}
+
+// Cambia el onboarding si cambia de rol
+document.getElementById('userTypeSelect').addEventListener('change', function() {
+  if (localStorage.getItem('chasquix_onboarded') !== 'yes') {
+    setTimeout(() => startOnboarding(this.value), 200);
+  }
+});
+
+// Solo la primera vez
+window.addEventListener('DOMContentLoaded', () => {
+  if (!localStorage.getItem('chasquix_onboarded')) {
+    setTimeout(() => startOnboarding(document.getElementById('userTypeSelect')?.value), 1200);
+  }
+});
+
+    </script>
+</body>
+
+</html>

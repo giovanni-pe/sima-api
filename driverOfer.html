@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Simulador de Conductor - MQTT</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+</head>
+<body style="font-family: sans-serif; padding: 2rem">
+  <h1>🛵 Simulador de Oferta de Conductor</h1>
+
+  <form onsubmit="sendOffer(); return false;">
+    <label>Trip ID: <input id="tripId" value="1" /></label><br /><br />
+    <label>Driver ID: <input id="driverId" value="101" /></label><br /><br />
+    <label>Nombre: <input id="name" value="Juan Pérez" /></label><br /><br />
+    <label>Precio (S/): <input id="price" value="5.50" step="0.01" /></label><br /><br />
+    <label>Rating: <input id="rating" value="4.7" step="0.1" /></label><br /><br />
+    <label>Latitud: <input id="lat" value="-12.0432" /></label><br /><br />
+    <label>Longitud: <input id="lng" value="-77.0282" /></label><br /><br />
+
+    <h3>Vehículo:</h3>
+    <label>Marca: <input id="brand" value="Honda" /></label><br />
+    <label>Modelo: <input id="model" value="Wave 110" /></label><br />
+    <label>Placa: <input id="plate" value="ABC-123" /></label><br />
+    <label>Color: <input id="color" value="Rojo" /></label><br /><br />
+
+    <button type="submit">📤 Enviar oferta</button>
+  </form>
+
+  <script>
+    const clientId = "sim_driver_" + Math.floor(Math.random() * 10000);
+    const client = new Paho.MQTT.Client(
+      "mqttv2.smartpx.org",
+      443,
+      "/mqtt",
+      clientId
+    );
+
+    client.connect({
+      useSSL: true,
+      timeout: 5,
+      onSuccess: () => {
+        console.log("✅ Conectado al broker MQTT");
+      },
+      onFailure: (err) => {
+        console.error("❌ Error de conexión MQTT:", err);
+      },
+    });
+
+    function sendOffer() {
+      const tripId = document.getElementById("tripId").value;
+      const topic = `chasqui/trip_offers/${tripId}`;
+
+      const payload = {
+        trip_id: parseInt(tripId),
+        driver_id: parseInt(document.getElementById("driverId").value),
+        price: parseFloat(document.getElementById("price").value),
+        driver: {
+          id: parseInt(document.getElementById("driverId").value),
+          name: document.getElementById("name").value,
+          rating: parseFloat(document.getElementById("rating").value),
+          location: {
+            latitude: parseFloat(document.getElementById("lat").value),
+            longitude: parseFloat(document.getElementById("lng").value),
+          },
+          vehicle: {
+            brand: document.getElementById("brand").value,
+            model: document.getElementById("model").value,
+            license_plate: document.getElementById("plate").value,
+            color: document.getElementById("color").value,
+          },
+        },
+      };
+
+      const message = new Paho.MQTT.Message(JSON.stringify(payload));
+      message.destinationName = topic;
+      client.send(message);
+      alert("✅ Oferta enviada al topic " + topic);
+    }
+  </script>
+</body>
+</html>

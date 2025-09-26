@@ -1,0 +1,96 @@
+@startuml
+title SIMA-UNAS - Modulo Parcel (Vista logica - Clases)
+skinparam packageStyle rect
+skinparam classAttributeIconVisibility false
+skinparam shadowing false
+
+package "Domain" {
+  class Parcel <<Entity>> {
+    id : int
+    name : string
+    location : string?
+    area_m2 : float
+    crop_type : string?
+    latitude : float?
+    longitude : float?
+    user_id : int?
+    active : bool
+    created_at : datetime?
+    updated_at : datetime?
+  }
+
+  interface IParcelRepository {
+    + find(id:int) : Parcel?
+    + save(entity:Parcel) : Parcel
+    + delete(id:int) : bool
+    + paginate(perPage:int, filters:array) : Page
+    + active() : Parcel[]
+  }
+
+  class Page {
+    data : any[]
+    current_page : int
+    per_page : int
+    total : int
+    last_page : int
+  }
+}
+
+package "Application" {
+  interface IParcelsService {
+    + paginate(perPage:int, filters:array) : Page
+    + find(id:int) : Parcel
+    + save(parcel:Parcel) : Parcel
+    + delete(id:int) : bool
+    + active() : Parcel[]
+  }
+
+  class ParcelsService <<Service>> {
+    - repo : IParcelRepository
+  }
+}
+
+package "Infrastructure" {
+  class ParcelModel <<Eloquent>> {
+    table : string = "parcels"
+    fillable : array
+    casts : array
+  }
+
+  class ParcelRepository <<Repository>> {
+    - model : ParcelModel
+    - toEntity(m:ParcelModel) : Parcel
+    - toModel(e:Parcel) : ParcelModel
+  }
+}
+
+package "HTTP" {
+  class ParcelsController <<Controller>> {
+    + index(Request) : JsonResponse
+    + store(CreateParcelRequest) : JsonResponse
+    + show(id:int) : JsonResponse
+    + update(UpdateParcelRequest, id:int) : JsonResponse
+    + destroy(id:int) : JsonResponse
+    + active() : JsonResponse
+  }
+
+  class ParcelDTO <<DTO>> {
+    + toEntity(id:int=null) : Parcel
+  }
+
+  class CreateParcelRequest <<FormRequest>>
+  class UpdateParcelRequest <<FormRequest>>
+}
+
+' Relaciones entre capas
+ParcelsController --> IParcelsService : usa
+ParcelsService ..|> IParcelsService
+ParcelsService --> IParcelRepository : usa
+
+ParcelRepository ..|> IParcelRepository
+ParcelRepository --> ParcelModel : persiste
+ParcelRepository ..> Parcel : mapea
+
+ParcelDTO ..> Parcel : toEntity()
+
+@enduml

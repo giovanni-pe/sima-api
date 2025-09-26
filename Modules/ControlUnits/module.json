@@ -1,0 +1,12 @@
+{
+    "name": "ControlUnits",
+    "alias": "controlunits",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\ControlUnits\\Providers\\ControlUnitsServiceProvider",
+        "Modules\\ControlUnits\\Providers\\RouteServiceProvider"
+    ],
+    "files": []
+}

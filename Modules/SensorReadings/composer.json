@@ -1,0 +1,30 @@
+{
+    "name": "nwidart/sensorreadings",
+    "description": "",
+    "authors": [
+        {
+            "name": "Tu Nombre",
+            "email": "tucorreo@example.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\SensorReadings\\": "app/",
+            "Modules\\SensorReadings\\Database\\Factories\\": "database/factories/",
+            "Modules\\SensorReadings\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\SensorReadings\\Tests\\": "tests/"
+        }
+    }
+}
