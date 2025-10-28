@@ -10,11 +10,12 @@ return new class extends Migration {
         Schema::create('sensors', function (Blueprint $t) {
             $t->id();
             $t->string('name', 255);
+            $t->foreignId('control_unit_id')->constrained('control_units')->onDelete('cascade')
+            ->onUpdate('cascade');
             $t->string('type', 255);
-            $t->boolean('active');
+            $t->tinyInteger('status')->default(1);
             $t->timestamps();
             $t->softDeletes();
-            $t->index('active');
         });
     }
 

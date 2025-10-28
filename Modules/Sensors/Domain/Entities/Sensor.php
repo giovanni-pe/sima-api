@@ -12,6 +12,7 @@ class Sensor extends BaseEntity
         protected ?\Carbon\Carbon $updated_at,
         public string $name,
         public string $type,
+        public int $control_unit_id,
         public bool $active,
     ) {}
 }

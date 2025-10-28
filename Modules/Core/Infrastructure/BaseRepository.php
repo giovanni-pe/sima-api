@@ -292,8 +292,8 @@ abstract class BaseRepository implements IBaseRepository
     {
         $q = $this->model->newQuery()->with($relations);
 
-        if (array_key_exists('active', $filters)) {
-            $q->where('active', (bool) $filters['active']);
+        if (array_key_exists('status', $filters)) {
+            $q->where('status', (bool) $filters['status']);
         }
 
         if (!empty($filters['search']) && !empty($filters['search_fields']) && is_array($filters['search_fields'])) {

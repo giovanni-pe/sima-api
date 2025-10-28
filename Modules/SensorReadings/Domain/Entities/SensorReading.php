@@ -13,7 +13,6 @@ class SensorReading extends BaseEntity
         public int $sensor_id,
         public string $timestamp,
         public float $value,
-        public string $2),
         public ?string $unit,
     ) {}
 }

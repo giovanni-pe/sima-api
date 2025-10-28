@@ -12,7 +12,6 @@ final class SensorReadingDTO
             public int $sensor_id,
             public string $timestamp,
             public float $value,
-            public string $2),
             public ?string $unit,
     ) {}
 
@@ -23,7 +22,6 @@ final class SensorReadingDTO
             sensor_id: isset($v['sensor_id']) ? (int)$v['sensor_id'] : 0,
             timestamp: ($v['timestamp'] ?? ''),
             value: isset($v['value']) ? (float)$v['value'] : 0.0,
-            2): ($v['2)'] ?? ''),
             unit: ($v['unit'] ?? null),
         );
     }
@@ -35,7 +33,6 @@ final class SensorReadingDTO
             sensor_id: isset($v['sensor_id']) ? (int)$v['sensor_id'] : 0,
             timestamp: ($v['timestamp'] ?? ''),
             value: isset($v['value']) ? (float)$v['value'] : 0.0,
-            2): ($v['2)'] ?? ''),
             unit: ($v['unit'] ?? null),
         );
     }
@@ -47,9 +44,7 @@ final class SensorReadingDTO
             sensor_id: $this->sensor_id,
             timestamp: $this->timestamp,
             value: $this->value,
-            2): $this->2),
             unit: $this->unit,
-
             created_at: null,
             updated_at: null,
         );

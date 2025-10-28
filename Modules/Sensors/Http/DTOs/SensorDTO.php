@@ -12,6 +12,7 @@ final class SensorDTO
             public string $name,
             public string $type,
             public bool $active,
+            public ?int $control_unit_id,
     ) {}
 
 
@@ -22,6 +23,7 @@ final class SensorDTO
             name: ($v['name'] ?? ''),
             type: ($v['type'] ?? ''),
             active: isset($v['active']) ? (bool)$v['active'] : false,
+            control_unit_id: isset($v['control_unit_id']) ? (int)$v['control_unit_id'] : null,
         );
     }
 
@@ -32,6 +34,7 @@ final class SensorDTO
             name: ($v['name'] ?? ''),
             type: ($v['type'] ?? ''),
             active: isset($v['active']) ? (bool)$v['active'] : false,
+            control_unit_id: isset($v['control_unit_id']) ? (int)$v['control_unit_id'] : null,
         );
     }
 
@@ -42,7 +45,7 @@ final class SensorDTO
             name: $this->name,
             type: $this->type,
             active: $this->active,
-
+            control_unit_id: $this->control_unit_id,
             created_at: null,
             updated_at: null,
         );

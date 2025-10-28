@@ -1,9 +1,6 @@
 <?php
 
 namespace App\Models;
-
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -47,40 +44,6 @@ class User extends Authenticatable
     {
         return $this->hasOne(UserProfile::class);
     }
-
-
-
-
-
-    public function UserLocations()
-    {
-        return $this->hasMany(UserLocation::class);
-    }
-
-
-
-
-
-    public function referredUsers()
-    {
-        return $this->hasMany(User::class, 'referred_by');
-    }
-
-    public function referrer()
-    {
-        return $this->belongsTo(User::class, 'referred_by');
-    }
-
-    // =================== SCOPES ===================
-
-    public function scopeActive($query)
-    {
-        return $query->where('status', 'active');
-    }
-
-
-    // =================== ACCESSORS & MUTATORS ===================
-
     protected function fullName(): Attribute
     {
         return Attribute::make(
@@ -94,15 +57,4 @@ class User extends Authenticatable
             set: fn($value) => preg_replace('/[^0-9+]/', '', $value),
         );
     }
-    public function generateReferralCode(): string
-    {
-        do {
-            $code = strtoupper(substr(md5(uniqid()), 0, 8));
-        } while (self::where('referral_code', $code)->exists());
-
-        $this->update(['referral_code' => $code]);
-        return $code;
-    }
-
-    
 }
