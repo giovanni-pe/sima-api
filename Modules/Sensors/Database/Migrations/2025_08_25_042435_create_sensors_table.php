@@ -13,7 +13,7 @@ return new class extends Migration {
             $t->foreignId('control_unit_id')->constrained('control_units')->onDelete('cascade')
             ->onUpdate('cascade');
             $t->string('type', 255);
-            $t->tinyInteger('status')->default(1);
+            $t->boolean('active')->default(true);
             $t->timestamps();
             $t->softDeletes();
         });

@@ -7,7 +7,7 @@ use Modules\Core\Domain\BaseEntity;
 class Sensor extends BaseEntity
 {
     public function __construct(
-        protected ?int $id,
+        public ?int $id,
         protected ?\Carbon\Carbon $created_at,
         protected ?\Carbon\Carbon $updated_at,
         public string $name,

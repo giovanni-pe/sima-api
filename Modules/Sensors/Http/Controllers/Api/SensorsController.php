@@ -15,7 +15,7 @@ class SensorsController extends BaseController
 
     public function index(Request $request)
     {
-        return $this->respond(fn() =>
+        return $this->paginated(
             $this->service->paginate(
                 perPage: $request->integer('per_page', 15),
                 filters: $request->all()

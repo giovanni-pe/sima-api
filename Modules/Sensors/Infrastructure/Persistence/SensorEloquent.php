@@ -11,6 +11,9 @@ class SensorEloquent extends Model
 
     protected $table = 'sensors';
 
-    protected $fillable = ['name','type','control_unit_id'];
-
+    protected $fillable = ['name', 'type', 'control_unit_id', 'active'];
+    protected $casts = [
+        'control_unit_id' => 'integer',
+        'active' => 'boolean',
+    ];
 }
